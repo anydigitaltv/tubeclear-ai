@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd tube-clear-ai-main && npm install && npm run build",
+  "outputDirectory": "tube-clear-ai-main/dist",
+  "rootDirectory": "tube-clear-ai-main",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
