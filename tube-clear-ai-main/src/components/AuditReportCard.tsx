@@ -141,15 +141,27 @@ export const AuditReportCard = ({
 
         {/* Detailed Risk Categories */}
         <div className="space-y-4">
-          {/* Section 1: AI-Generated Content */}
+          {/* Section 1: AI-Generated Content - WITH DISCLOSURE VERIFICATION */}
           <AuditSection
             title="1. AI-GENERATED CONTENT"
-            riskScore={43}
-            status="WARNING"
-            reason="Potential AI-generated voice or visuals detected."
-            policy="Per April 2026 Rules, 'Altered Content' label is MANDATORY."
-            learnMoreLink="https://support.google.com/youtube/answer/2801973#ai-disclosure"
+            riskScore={report.aiDetected ? 43 : 0}
+            status={report.aiDetected ? (report.disclosureVerified ? "PASS" : "WARNING") : "PASS"}
+            reason={report.aiDetected 
+              ? (report.disclosureVerified 
+                  ? "AI-generated elements detected but properly disclosed." 
+                  : "Potential AI-generated voice or visuals detected.")
+              : "No AI-generated content detected."
+            }
+            policy={report.aiDetected
+              ? (report.disclosureVerified
+                  ? report.whyAnalysis.disclosureNote || "Properly disclosed per 2026 Policy."
+                  : "Per April 2026 Rules, 'Altered Content' label is MANDATORY.")
+              : undefined
+            }
+            learnMoreLink={report.whyAnalysis.policyLinks[0]}
             icon="🤖"
+            disclosureStatus={report.aiDetected ? report.whyAnalysis.disclosureStatus : undefined}
+            disclosureNote={report.aiDetected ? report.whyAnalysis.disclosureNote : undefined}
           />
 
           {/* Section 2: Misleading Metadata */}
@@ -159,7 +171,7 @@ export const AuditReportCard = ({
             status="WARNING"
             reason="High intensity of clickbait keywords detected in Title."
             policy="Violates Community Standards on deceptive practices."
-            learnMoreLink="https://support.google.com/youtube/answer/2801973#metadata"
+            learnMoreLink={report.whyAnalysis.policyLinks[1] || report.whyAnalysis.policyLinks[0]}
             icon="📝"
           />
 
@@ -216,6 +228,8 @@ interface AuditSectionProps {
   policy?: string;
   learnMoreLink?: string;
   icon?: string;
+  disclosureStatus?: "verified" | "missing" | "not_required";
+  disclosureNote?: string;
 }
 
 const AuditSection = ({
@@ -225,7 +239,9 @@ const AuditSection = ({
   reason,
   policy,
   learnMoreLink,
-  icon = "📋"
+  icon = "📋",
+  disclosureStatus,
+  disclosureNote,
 }: AuditSectionProps) => {
   const getBorderColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -290,6 +306,33 @@ const AuditSection = ({
               Clickable Link to Official Policy
               <ExternalLink className="w-3 h-3" />
             </a>
+          </div>
+        )}
+
+        {/* Disclosure Verification Badge */}
+        {disclosureStatus && disclosureStatus !== "not_required" && (
+          <div className={`mt-3 p-3 rounded-lg border-2 ${
+            disclosureStatus === "verified" 
+              ? "bg-green-50 border-green-300" 
+              : "bg-red-50 border-red-300"
+          }`}>
+            <div className="flex items-center gap-2">
+              {disclosureStatus === "verified" ? (
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              )}
+              <span className={`font-semibold text-sm ${
+                disclosureStatus === "verified" ? "text-green-800" : "text-red-800"
+              }`}>
+                Disclosure {disclosureStatus === "verified" ? "VERIFIED" : "MISSING"}
+              </span>
+            </div>
+            {disclosureNote && (
+              <p className="text-xs mt-1 text-gray-700">
+                {disclosureNote}
+              </p>
+            )}
           </div>
         )}
       </div>

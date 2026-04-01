@@ -40,6 +40,8 @@ export interface WhyAnalysis {
   metadataReason?: string;
   policyLinks: string[];
   exactViolations: string[];
+  disclosureStatus?: "verified" | "missing" | "not_required";
+  disclosureNote?: string;
 }
 
 export interface FullReport {
@@ -49,6 +51,8 @@ export interface FullReport {
   overallRisk: number;
   whyAnalysis: WhyAnalysis;
   shareable: boolean;
+  aiDetected: boolean;
+  disclosureVerified: boolean;
 }
 
 const HybridScannerContext = createContext<HybridScannerContextType | undefined>(undefined);
@@ -251,17 +255,105 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
     return new Date(latest).toLocaleString();
   }, [livePolicies, verifyPolicyTimestamp]);
 
-  // Generate "Why" Analysis
-  const generateWhyAnalysis = useCallback((result: DeepScanResult): WhyAnalysis => {
+  // DISCLOSURE VERIFICATION: Check platform-specific AI disclosure labels
+  const verifyDisclosure = useCallback((
+    metadata: MetadataScrapeResult,
+    platformId: string,
+    aiDetected: boolean
+  ): { isDisclosed: boolean; status: "verified" | "missing" | "not_required"; note?: string } => {
+    if (!aiDetected) {
+      return { isDisclosed: true, status: "not_required", note: "No AI content detected - disclosure not required" };
+    }
+
+    const fullText = `${metadata.title} ${metadata.description} ${metadata.tags.join(' ')}`.toLowerCase();
+    
+    // Platform-specific disclosure patterns
+    const disclosurePatterns: Record<string, RegExp[]> = {
+      youtube: [
+        /altered content/i,
+        /synthetic media/i,
+        /ai generated/i,
+        /ai-created/i,
+        /artificial intelligence/i,
+        /\bAI\b.*content/i,
+      ],
+      tiktok: [
+        /ai-generated/i,
+        /ai generated/i,
+        /ai label/i,
+        /tiktok ai tag/i,
+        /\bAI\b.*tag/i,
+      ],
+      facebook: [
+        /made with ai/i,
+        /created with ai/i,
+        /ai-generated content/i,
+        /meta ai label/i,
+        /\bAI\b.*facebook/i,
+      ],
+      instagram: [
+        /made with ai/i,
+        /created with ai/i,
+        /ai-generated content/i,
+        /meta ai label/i,
+        /ig ai label/i,
+      ],
+      dailymotion: [
+        /ai disclosure/i,
+        /ai generated/i,
+        /artificial intelligence/i,
+        /dailymotion ai/i,
+        /\bAI\b.*video/i,
+      ],
+    };
+
+    const patterns = disclosurePatterns[platformId] || [];
+    
+    // Check if any disclosure pattern matches
+    const isDisclosed = patterns.some(pattern => pattern.test(fullText));
+    
+    if (isDisclosed) {
+      return {
+        isDisclosed: true,
+        status: "verified",
+        note: "AI content detected but properly disclosed per 2026 Policy.",
+      };
+    } else {
+      return {
+        isDisclosed: false,
+        status: "missing",
+        note: `AI content detected but ${platformId.charAt(0).toUpperCase() + platformId.slice(1)}-required disclosure label is MISSING.`,
+      };
+    }
+  }, []);
+
+  // Generate "Why" Analysis with Disclosure Verification
+  const generateWhyAnalysis = useCallback((result: DeepScanResult, metadata?: MetadataScrapeResult, platformId?: string): WhyAnalysis => {
     const analysis: WhyAnalysis = {
       riskReason: "",
       policyLinks: [],
       exactViolations: [],
+      disclosureStatus: "not_required",
     };
     
     // AI Detection reason
-    if (result.aiDetectionConfidence && result.aiDetectionConfidence > 0.7) {
-      analysis.aiDetectionReason = `Reason: Potential AI elements found. Per ${getLiveVerificationTimestamp()} Policy, an 'Altered Content' label is MANDATORY.`;
+    const aiDetected = result.aiDetectionConfidence && result.aiDetectionConfidence > 0.7;
+    
+    if (aiDetected && metadata && platformId) {
+      // Check disclosure verification
+      const disclosureCheck = verifyDisclosure(metadata, platformId, aiDetected);
+      analysis.disclosureStatus = disclosureCheck.status;
+      analysis.disclosureNote = disclosureCheck.note;
+      
+      if (disclosureCheck.isDisclosed) {
+        // PROPERLY DISCLOSED - Change to PASS
+        analysis.aiDetectionReason = `Reason: AI elements detected but PROPERLY DISCLOSED. ${disclosureCheck.note}`;
+      } else {
+        // MISSING DISCLOSURE - Keep as WARNING
+        analysis.aiDetectionReason = `Reason: Potential AI elements found. Per ${getLiveVerificationTimestamp()} Policy, an 'Altered Content' label is MANDATORY.`;
+      }
+    } else if (aiDetected) {
+      analysis.aiDetectionReason = `Reason: Potential AI elements found. Per ${getLiveVerificationTimestamp()} Policy, disclosure is required.`;
     }
     
     // Metadata analysis
@@ -272,20 +364,24 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
     // Collect policy links
     result.issues.forEach(issue => {
       // Find matching policy and add link
-      const policyLink = "https://support.google.com/youtube/answer/2801973"; // Example
+      const policyLink = getPolicyUrl(platformId || "youtube");
       if (!analysis.policyLinks.includes(policyLink)) {
         analysis.policyLinks.push(policyLink);
       }
       analysis.exactViolations.push(issue);
     });
     
-    // Overall risk reason
-    analysis.riskReason = analysis.aiDetectionReason || 
-                         analysis.metadataReason || 
-                         `Overall Risk Assessment: ${result.riskLevel.toUpperCase()}`;
+    // Overall risk reason - ADJUST based on disclosure status
+    if (analysis.disclosureStatus === "verified") {
+      analysis.riskReason = "AI content properly disclosed - compliant with 2026 Policy.";
+    } else {
+      analysis.riskReason = analysis.aiDetectionReason || 
+                           analysis.metadataReason || 
+                           `Overall Risk Assessment: ${result.riskLevel.toUpperCase()}`;
+    }
     
     return analysis;
-  }, [getLiveVerificationTimestamp]);
+  }, [verifyDisclosure, getLiveVerificationTimestamp, getPolicyUrl]);
 
   // Copy full report to clipboard
   const copyReportToClipboard = useCallback(async (report: FullReport): Promise<boolean> => {
