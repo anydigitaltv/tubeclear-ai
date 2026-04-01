@@ -30,7 +30,7 @@ interface HybridScannerContextType {
   scanProgress: number; // 0-100%
   executeHybridScan: (input: VideoScanInput) => Promise<DeepScanResult>;
   getLiveVerificationTimestamp: () => string;
-  generateWhyAnalysis: (result: DeepScanResult) => WhyAnalysis;
+  generateWhyAnalysis: (result: DeepScanResult, metadata?: MetadataScrapeResult, platformId?: string) => WhyAnalysis;
   copyReportToClipboard: (report: FullReport) => Promise<boolean>;
 }
 
@@ -165,7 +165,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       const scanResult = await scanVideo({
         ...input,
         // Pass policy context to AI
-      }, true); // Skip confirmation for hybrid scan
+      }); // Skip confirmation for hybrid scan
       
       if (!scanResult) {
         throw new Error("AI scan failed");
