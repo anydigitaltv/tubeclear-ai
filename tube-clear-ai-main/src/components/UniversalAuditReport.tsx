@@ -197,26 +197,30 @@ export const UniversalAuditReport = ({
           </div>
         </div>
 
-        {/* Deep Scan Prompt */}
+        {/* Deep Scan Prompt - BRIGHT YELLOW BUTTON */}
         {showDeepScanPrompt && onRunDeepScan && (
           <motion.div
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 rounded-lg p-4"
+            className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-400 rounded-lg p-4 shadow-lg"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <Sparkles className="w-6 h-6 text-purple-600 mt-0.5" />
+                <Sparkles className="w-6 h-6 text-yellow-600 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-purple-900">2026 Bot Safety Deep Scan Recommended</h4>
-                  <p className="text-sm text-purple-700 mt-1">
+                  <h4 className="font-bold text-yellow-900">🚨 2026 Bot Safety Deep Scan Recommended</h4>
+                  <p className="text-sm text-yellow-700 mt-1">
                     Your risk score is {report.overallRisk}/100. Run a comprehensive deep scan to detect hidden violations 
                     and ensure full monetization safety for 2026 algorithm updates.
                   </p>
                 </div>
               </div>
-              <Button onClick={onRunDeepScan} size="sm" className="bg-purple-600 hover:bg-purple-700">
-                Run Deep Scan
+              <Button 
+                onClick={onRunDeepScan} 
+                size="sm" 
+                className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold border-2 border-black shadow-md"
+              >
+                🔍 Run Deep Scan
               </Button>
             </div>
           </motion.div>
@@ -256,8 +260,7 @@ export const UniversalAuditReport = ({
                 ? `Add the required disclosure label immediately:\n\n• YouTube: Add "Altered Content" label in upload settings\n• TikTok: Enable "AI-generated" tag before posting\n• Facebook/IG: Use "Made with AI" label\n• Dailymotion: Include "AI-generated" in description\n\nThis will change your status from WARNING to PASS!`
                 : "Your content is fully compliant! Keep following best practices."
             }}
-            isExpanded={expandedSections[0]}
-            onToggle={() => toggleSection(0)}
+            alwaysShowAdvisor={true}
           />
 
           {/* Section 2: Misleading Metadata */}
@@ -274,8 +277,7 @@ export const UniversalAuditReport = ({
               why: "Clickbait keywords like 'grow fast', 'viral secrets', or 'guaranteed views' violate platform metadata standards and can trigger demonetization.",
               howToFix: "Replace misleading claims with accurate descriptions:\n\n• Instead of 'Grow Fast' → 'Organic Growth Strategies'\n• Instead of 'Viral Secrets' → 'Proven Content Tips'\n• Instead of 'Guaranteed Views' → 'View Optimization Tips'\n\nAccurate titles build trust and comply with 2026 policies!"
             }}
-            isExpanded={expandedSections[1]}
-            onToggle={() => toggleSection(1)}
+            alwaysShowAdvisor={true}
           />
 
           {/* Section 3: Copyright & Ad-Suitability */}
@@ -291,8 +293,7 @@ export const UniversalAuditReport = ({
               why: "While no copyright violations were found, some topics may affect ad-revenue eligibility under advertiser-friendly guidelines.",
               howToFix: "Review YouTube's advertiser-friendly content guidelines:\n\n• Avoid controversial or sensitive topics\n• Use only royalty-free or licensed music\n• Create 100% original content\n• Add value through commentary or education\n\nThis ensures maximum monetization potential!"
             }}
-            isExpanded={expandedSections[2]}
-            onToggle={() => toggleSection(2)}
+            alwaysShowAdvisor={true}
           />
         </div>
 
@@ -345,8 +346,7 @@ interface UniversalAuditSectionProps {
     why: string;
     howToFix: string;
   };
-  isExpanded: boolean;
-  onToggle: () => void;
+  alwaysShowAdvisor?: boolean;
 }
 
 const UniversalAuditSection = ({
@@ -361,8 +361,7 @@ const UniversalAuditSection = ({
   disclosureStatus,
   disclosureNote,
   aiAdvisor,
-  isExpanded,
-  onToggle
+  alwaysShowAdvisor = false
 }: UniversalAuditSectionProps) => {
   const getBorderColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -384,7 +383,7 @@ const UniversalAuditSection = ({
 
   return (
     <div className={`rounded-lg border-2 p-4 ${getBorderColor(status)}`}>
-      <div className="flex items-start justify-between mb-3 cursor-pointer" onClick={onToggle}>
+      <div className="flex items-start justify-between mb-3">
         <h4 className="text-lg font-bold flex items-center gap-2">
           <span className="text-2xl">{icon}</span>
           {title}
@@ -397,11 +396,6 @@ const UniversalAuditSection = ({
             <span className="text-xs text-muted-foreground">RISK:</span>
             <p className="font-bold text-lg">{riskScore}/100</p>
           </div>
-          {isExpanded ? (
-            <ChevronUp className="w-5 h-5" />
-          ) : (
-            <ChevronDown className="w-5 h-5" />
-          )}
         </div>
       </div>
 
@@ -462,50 +456,42 @@ const UniversalAuditSection = ({
           </div>
         )}
 
-        {/* AI Doctor Advisor Section - EXPANDABLE */}
-        <AnimatePresence>
-          {isExpanded && aiAdvisor && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-4 space-y-3"
-            >
-              {/* WHY This Score */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-blue-900 text-sm mb-1">Why This Score?</p>
-                    <p className="text-blue-800 text-xs leading-relaxed">{aiAdvisor.why}</p>
-                  </div>
+        {/* AI Doctor Advisor Section - ALWAYS VISIBLE */}
+        {aiAdvisor && (
+          <div className="mt-4 space-y-3">
+            {/* WHY This Score */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900 text-sm mb-1">Why This Score?</p>
+                  <p className="text-blue-800 text-xs leading-relaxed">{aiAdvisor.why}</p>
                 </div>
               </div>
+            </div>
 
-              {/* HOW To Fix */}
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <TrendingUp className="w-5 h-5 text-purple-600 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-purple-900 text-sm mb-1">How To Fix (2026 Monetization Safety)</p>
-                    <p className="text-purple-800 text-xs leading-relaxed whitespace-pre-line">{aiAdvisor.howToFix}</p>
-                  </div>
+            {/* HOW To Fix */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <TrendingUp className="w-5 h-5 text-purple-600 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-purple-900 text-sm mb-1">How To Fix (2026 Monetization Safety)</p>
+                  <p className="text-purple-800 text-xs leading-relaxed whitespace-pre-line">{aiAdvisor.howToFix}</p>
                 </div>
               </div>
+            </div>
 
-              {/* Pro Tip */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-green-600" />
-                  <p className="text-xs text-green-800 font-semibold">
-                    AI Doctor Pro Tip: Following these recommendations will improve your monetization eligibility by 85%!
-                  </p>
-                </div>
+            {/* Pro Tip */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-green-600" />
+                <p className="text-xs text-green-800 font-semibold">
+                  AI Doctor Pro Tip: Following these recommendations will improve your monetization eligibility by 85%!
+                </p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

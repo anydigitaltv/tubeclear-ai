@@ -193,6 +193,7 @@ const Index = () => {
               {isScanning && <ScanSkeleton />}
               {auditReport && metadata && (
                 <UniversalAuditReport
+                  key={`report-${auditReport.verifiedTimestamp}-${auditReport.overallRisk}`}
                   report={auditReport}
                   metadata={metadata}
                   platform={auditReport.platform}
