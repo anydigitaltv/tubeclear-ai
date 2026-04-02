@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import type { User, Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -74,16 +73,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await supabase.auth.signOut();
       
       // Use production URL on Vercel with /auth/callback
-      const baseUrl = import.meta.env.PROD 
-        ? "https://tubeclear-ai.vercel.app" 
-        : window.location.origin;
-      
-      const redirectUri = `${baseUrl}/auth/callback`;
+      const redirectUri = `${window.location.origin}/auth/callback`;
       
       console.log('Initiating Google OAuth with redirect:', redirectUri);
       
-      const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: redirectUri,
+      // Use standard Supabase signInWithOAuth
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+        },
       });
       
       if (error) {
@@ -92,7 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       // If we reach here, redirect happened successfully
-      console.log('OAuth redirect initiated');
+      console.log('OAuth redirect initiated', data);
     } catch (err) {
       console.error('Login failed:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
