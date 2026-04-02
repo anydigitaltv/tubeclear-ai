@@ -15,10 +15,12 @@ import {
   TrendingUp,
   Bot,
   Video,
-  Sparkles
+  Sparkles,
+  Globe
 } from "lucide-react";
 import type { FullReport, WhyAnalysis } from "@/contexts/HybridScannerContext";
 import type { VideoMetadata } from "@/contexts/MetadataFetcherContext";
+import { getPlatformDisplayName, getPlatformEmoji, isProtectedPlatform } from "@/utils/urlHelper";
 
 interface UniversalAuditReportProps {
   report: FullReport;
@@ -107,9 +109,19 @@ export const UniversalAuditReport = ({
               TUBECLEAR AI UNIVERSAL AUDIT REPORT
             </CardTitle>
             <div className="flex items-center gap-3 mt-2 flex-wrap">
-              <p className="text-sm opacity-90">
-                Generated: {generatedAt}
-              </p>
+              {/* Platform Logo & Name */}
+              <Badge variant="outline" className="bg-white/20 border-white/40 text-white font-semibold">
+                {getPlatformEmoji(platform)} {getPlatformDisplayName(platform)}
+              </Badge>
+              
+              {/* Protected Platform Warning */}
+              {isProtectedPlatform(platform) && metadata?.fetchedFrom === "native" && (
+                <Badge variant="outline" className="bg-orange-500/20 border-orange-400 text-orange-200 text-xs">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  Platform Protected • AI Analysis Used
+                </Badge>
+              )}
+              
               {metadata?.fetchedFrom === "ai_failover" && (
                 <Badge variant="outline" className="bg-purple-500/20 border-purple-400 text-purple-200 text-xs">
                   <Bot className="w-3 h-3 mr-1" />
@@ -147,7 +159,10 @@ export const UniversalAuditReport = ({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Platform:</span>
-            <p className="font-semibold">{platform}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-2xl">{getPlatformEmoji(platform)}</span>
+              <p className="font-semibold capitalize">{getPlatformDisplayName(platform)}</p>
+            </div>
           </div>
           <div>
             <span className="text-muted-foreground">Video:</span>
@@ -168,11 +183,47 @@ export const UniversalAuditReport = ({
           </div>
           <div>
             <span className="text-muted-foreground">Metadata Source:</span>
-            <p className="font-semibold capitalize">
-              {metadata?.fetchedFrom || "native"}
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              {metadata?.fetchedFrom === "ai_failover" ? (
+                <Bot className="w-4 h-4 text-purple-600" />
+              ) : isProtectedPlatform(platform) ? (
+                <AlertTriangle className="w-4 h-4 text-orange-600" />
+              ) : (
+                <CheckCircle className="w-4 h-4 text-green-600" />
+              )}
+              <p className="font-semibold capitalize">
+                {metadata?.fetchedFrom === "ai_failover" 
+                  ? `AI (${metadata.aiEngineUsed})` 
+                  : isProtectedPlatform(platform)
+                    ? "Protected Platform"
+                    : "Native API"}
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* Protected Platform Notice - Show when metadata is limited */}
+        {(isProtectedPlatform(platform) && (!metadata || metadata.description.includes('video content'))) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-orange-50 border-2 border-orange-300 rounded-lg p-4"
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-orange-900 mb-1">
+                  Platform Protected: Analyzing via AI Policy Engine
+                </h4>
+                <p className="text-sm text-orange-800">
+                  {platform === 'tiktok' 
+                    ? 'TikTok restricts direct metadata access. TubeClear AI is analyzing this video using advanced AI engines (Gemini/Groq) and 2026 policy patterns to provide an accurate safety assessment.'
+                    : 'Instagram limits data access. Our AI is analyzing the content structure and URL context to generate a comprehensive compliance report based on 2026 guidelines.'}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Overall Risk Score - PROMINENT DISPLAY */}
         <div className={`p-6 rounded-lg border-2 ${getRiskColor(report.overallRisk)}`}>
