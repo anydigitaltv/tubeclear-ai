@@ -24,6 +24,10 @@ import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { MasterAdminProvider } from "@/contexts/MasterAdminContext";
 import { AuditDoctorProvider } from "@/contexts/AuditDoctorContext";
 import { SecureVaultProvider } from "@/contexts/SecureVaultContext";
+// CRITICAL: Add missing contexts for Universal Audit Report
+import { MetadataFetcherProvider } from "@/contexts/MetadataFetcherContext";
+import { PolicyWatcherProvider } from "@/contexts/PolicyWatcherContext";
+import { HybridScannerProvider } from "@/contexts/HybridScannerContext";
 import Index from "./pages/Index.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import AuthCallback from "./pages/AuthCallback.tsx";
@@ -60,21 +64,28 @@ const App = () => (
                                           <MasterAdminProvider>
                                             <AuditDoctorProvider>
                                               <SecureVaultProvider>
-                                                <Toaster />
-                                                <Sonner />
-                                                <BrowserRouter>
-                                                  <Routes>
-                                                    <Route path="/" element={<Index />} />
-                                                    <Route path="/auth/callback" element={<AuthCallback />} />
-                                                    <Route path="/dashboard" element={<Dashboard />} />
-                                                    <Route path="/privacy" element={<PrivacyPolicy />} />
-                                                    <Route path="/admin" element={<Admin />} />
-                                                    <Route path="/security" element={<SecuritySettings />} />
-                                                    <Route path="/payment" element={<Payment />} />
-                                                    <Route path="/dispute" element={<DisputeForm />} />
-                                                    <Route path="*" element={<NotFound />} />
-                                                  </Routes>
-                                                </BrowserRouter>
+                                                {/* CRITICAL: Universal Audit Report Contexts */}
+                                                <MetadataFetcherProvider>
+                                                  <PolicyWatcherProvider>
+                                                    <HybridScannerProvider>
+                                                      <Toaster />
+                                                      <Sonner />
+                                                      <BrowserRouter>
+                                                        <Routes>
+                                                          <Route path="/" element={<Index />} />
+                                                          <Route path="/auth/callback" element={<AuthCallback />} />
+                                                          <Route path="/dashboard" element={<Dashboard />} />
+                                                          <Route path="/privacy" element={<PrivacyPolicy />} />
+                                                          <Route path="/admin" element={<Admin />} />
+                                                          <Route path="/security" element={<SecuritySettings />} />
+                                                          <Route path="/payment" element={<Payment />} />
+                                                          <Route path="/dispute" element={<DisputeForm />} />
+                                                          <Route path="*" element={<NotFound />} />
+                                                        </Routes>
+                                                      </BrowserRouter>
+                                                    </HybridScannerProvider>
+                                                  </PolicyWatcherProvider>
+                                                </MetadataFetcherProvider>
                                               </SecureVaultProvider>
                                             </AuditDoctorProvider>
                                           </MasterAdminProvider>

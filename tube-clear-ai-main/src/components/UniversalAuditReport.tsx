@@ -2,14 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Shield,
   Coins,
   CheckCircle,
   AlertTriangle,
-  XCircle,
   ExternalLink,
   Copy,
   Share2,
@@ -17,9 +15,6 @@ import {
   TrendingUp,
   Bot,
   Video,
-  FileText,
-  ChevronDown,
-  ChevronUp,
   Sparkles
 } from "lucide-react";
 import type { FullReport, WhyAnalysis } from "@/contexts/HybridScannerContext";
