@@ -24,7 +24,8 @@ import type { PlatformId } from "@/contexts/PlatformContext";
 // Calculate scan cost based on duration (from VideoScanContext)
 const calculateScanCost = (durationSeconds?: number): { cost: number; warning?: string } => {
   if (!durationSeconds || durationSeconds <= 0) {
-    return { cost: 5, warning: 'Unable to detect video duration. Using Standard pricing (5 coins).' };
+    // Default to minimum cost instead of standard
+    return { cost: 2, warning: 'Unable to detect video duration. Using minimum pricing (2 coins).' };
   }
   
   if (durationSeconds < 60) {
@@ -82,36 +83,54 @@ const Index = () => {
     sectionRefs[section as keyof typeof sectionRefs]?.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleScan = async (url: string) => {
+  const handleScan = async (url: string, platformId: string) => {
     setIsScanning(true);
     setAuditReport(null);
     setMetadata(null);
 
     try {
-      // STEP 1: Extract platform info from URL
-      const platformId: PlatformId = url.includes('youtube.com') || url.includes('youtu.be') ? 'youtube' : 
-                                      url.includes('tiktok.com') ? 'tiktok' : 'youtube'; // default
+      // STEP 1: Check if user has their own API key (FREE SCAN)
+      const storedApiKeys = localStorage.getItem("tubeclear_api_keys");
+      const hasUserApiKey = storedApiKeys && JSON.parse(storedApiKeys).length > 0;
       
-      // STEP 2: Fetch metadata with 7-engine failover
-      const fetchedMetadata = await fetchMetadataWithFailover(url, platformId);
+      // STEP 2: Extract platform info from URL
+      const platform: PlatformId = platformId as PlatformId || 'youtube';
+      
+      // STEP 3: Fetch metadata with 7-engine failover
+      const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
       setMetadata(fetchedMetadata);
       
-      console.log('Metadata source:', fetchedMetadata.fetchedFrom);
+      // STEP 4: Calculate scan cost based on duration and API key usage
+      let cost = 0;
+      let scanType: CoinTransactionType = "scan_deep";
       
-      // STEP 3: Calculate scan cost based on duration
-      const cost = calculateScanCost(fetchedMetadata.durationSeconds).cost;
-      
-      // STEP 4: Check balance
-      if (balance < cost) {
-        toast.error(`Insufficient coins. You need ${cost} coins but have ${balance}.`);
-        setIsScanning(false);
-        return;
+      if (hasUserApiKey) {
+        // FREE SCAN - User provided their own API key
+        cost = 0;
+        scanType = "scan_deep"; // Still record it but with 0 cost
+        toast.success("Using your API key - Scan is FREE!");
+      } else if (isGuest) {
+        // Guest Mode - Basic Scan is FREE
+        cost = 0;
+        scanType = "scan_deep";
+        toast.info("Guest Mode: Free basic scan");
+      } else {
+        // Logged-in user without API key - Charge 5 coins
+        cost = calculateScanCost(fetchedMetadata.durationSeconds).cost;
+        scanType = "scan_deep";
+        
+        // STEP 5: Check balance (ONLY if no API key)
+        if (balance < cost) {
+          toast.error(`Insufficient coins. You need ${cost} coins but have ${balance}.`);
+          setIsScanning(false);
+          return;
+        }
       }
       
-      // STEP 5: Execute hybrid scan
+      // STEP 6: Execute hybrid scan
       const result: DeepScanResult = await executeHybridScan({
         videoId: url.split('/').pop() || 'unknown',
-        platformId,
+        platformId: platform,
         title: fetchedMetadata.title,
         tags: fetchedMetadata.tags,
         description: fetchedMetadata.description,
@@ -119,22 +138,24 @@ const Index = () => {
         videoUrl: url,
       });
       
-      // STEP 6: Deduct coins
-      await spendCoins(cost, "scan_deep", `Scanning: ${fetchedMetadata.title}`);
+      // STEP 7: Deduct coins (ONLY if cost > 0)
+      if (cost > 0) {
+        await spendCoins(cost, scanType, `Scanning: ${fetchedMetadata.title}`);
+      }
       
-      // STEP 7: Generate why analysis with disclosure verification
+      // STEP 8: Generate why analysis with disclosure verification
       const whyAnalysis = generateWhyAnalysis(result, {
         title: fetchedMetadata.title,
         description: fetchedMetadata.description,
         tags: fetchedMetadata.tags,
         extractedAt: new Date().toISOString()
-      }, platformId);
+      }, platform);
       
-      // STEP 8: Build full report
+      // STEP 9: Build full report
       const report: FullReport = {
         videoUrl: url,
         verifiedTimestamp: new Date().toISOString(),
-        platform: platformId,
+        platform: platform,
         overallRisk: result.riskScore,
         aiDetected: result.aiDetectionConfidence > 0.7,
         disclosureVerified: whyAnalysis.disclosureStatus === "verified",
@@ -144,13 +165,13 @@ const Index = () => {
       
       setAuditReport(report);
       
-      // STEP 9: Show failover result
+      // STEP 10: Show failover result
       const failoverResult = getLastFailoverResult();
       if (failoverResult?.engineUsed && failoverResult.engineUsed !== "native_api") {
         toast.info(`Metadata generated by ${failoverResult.engineUsed}`);
       }
       
-      // STEP 10: Add to history
+      // STEP 11: Add to history
       const newItem: ScanHistoryItem = {
         url,
         title: fetchedMetadata.title,

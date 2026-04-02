@@ -10,7 +10,7 @@ export interface ScanHistoryItem {
 
 interface RecentScansProps {
   history: ScanHistoryItem[];
-  onRescan: (url: string) => void;
+  onRescan: (url: string, platformId: string) => void;
 }
 
 const RecentScans = ({ history, onRescan }: RecentScansProps) => {
@@ -33,7 +33,14 @@ const RecentScans = ({ history, onRescan }: RecentScansProps) => {
           {history.slice(0, 6).map((item, i) => (
             <button
               key={i}
-              onClick={() => onRescan(item.url)}
+              onClick={() => {
+                // Detect platform from URL
+                const platform = item.url.includes('tiktok.com') ? 'tiktok' :
+                                 item.url.includes('instagram.com') ? 'instagram' :
+                                 item.url.includes('facebook.com') ? 'facebook' :
+                                 item.url.includes('dailymotion.com') ? 'dailymotion' : 'youtube';
+                onRescan(item.url, platform);
+              }}
               className="glass p-3 rounded-lg text-left hover:border-primary/30 transition-colors group flex items-center gap-3"
             >
               <span className={`text-lg font-bold tabular-nums ${getColor(item.risk)}`}>
