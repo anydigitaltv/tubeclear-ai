@@ -59,6 +59,38 @@ const getPlatformIcon = (platform: string) => {
   return <Icon className="w-5 h-5" />;
 };
 
+// Platform-specific branding
+const getPlatformBranding = (platform: string) => {
+  const branding: Record<string, { gradient: string; color: string; bgColor: string }> = {
+    youtube: {
+      gradient: "from-red-600 to-red-500",
+      color: "text-red-500",
+      bgColor: "bg-red-500/10"
+    },
+    tiktok: {
+      gradient: "from-pink-500 via-purple-500 to-cyan-500",
+      color: "text-pink-500",
+      bgColor: "bg-pink-500/10"
+    },
+    instagram: {
+      gradient: "from-purple-600 via-pink-500 to-orange-400",
+      color: "text-purple-500",
+      bgColor: "bg-purple-500/10"
+    },
+    facebook: {
+      gradient: "from-blue-600 to-blue-500",
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10"
+    },
+    dailymotion: {
+      gradient: "from-blue-700 to-blue-600",
+      color: "text-blue-600",
+      bgColor: "bg-blue-600/10"
+    }
+  };
+  return branding[platform.toLowerCase()] || branding.youtube;
+};
+
 // Policy compliance status
 interface PolicyCompliance {
   policyId: string;
@@ -82,6 +114,9 @@ export const ProfessionalDashboard = ({
   const [isExporting, setIsExporting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const { getRulesByPlatform } = usePolicyRules();
+  
+  // Get platform-specific branding
+  const platformBranding = getPlatformBranding(platform);
 
   // Save to recent scans when scan completes
   useEffect(() => {
@@ -315,7 +350,7 @@ export const ProfessionalDashboard = ({
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-500/20 via-orange-500/20 to-red-500/20 backdrop-blur-xl border-2 border-red-500/40 shadow-[0_0_30px_rgba(239,68,68,0.2)]"
+          className={`relative overflow-hidden rounded-2xl backdrop-blur-xl border-2 shadow-[0_0_30px_rgba(239,68,68,0.2)] bg-gradient-to-r from-red-500/20 via-orange-500/20 to-red-500/20 border-red-500/40`}
         >
           <div className="p-6">
             <div className="flex items-start gap-4">
@@ -348,12 +383,15 @@ export const ProfessionalDashboard = ({
         </motion.div>
       )}
 
-      {/* Header - Glassmorphism Effect */}
+      {/* Header - Glassmorphism Effect with Platform Branding */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-slate-700/50 shadow-2xl"
       >
+        {/* Platform accent bar */}
+        <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${platformBranding.gradient}`} />
+        
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5" />
         
         <div className="relative p-6 md:p-8">
@@ -554,9 +592,9 @@ export const ProfessionalDashboard = ({
                   {totalPolicies} policies checked • {compliancePercentage}% compliant
                 </p>
               </div>
-              <Badge variant="outline" className="bg-slate-700/50 border-slate-600 text-slate-300">
+              <Badge variant="outline" className={`bg-slate-700/50 border-slate-600 text-slate-300`}>
                 <Shield className="w-3 h-3 mr-1" />
-                Live 2026 Policies
+                Live 2026 Policies • {platform.toUpperCase()}
               </Badge>
             </div>
           </CardHeader>
