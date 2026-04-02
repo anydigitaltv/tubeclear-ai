@@ -10,6 +10,8 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        console.log('AuthCallback: Processing authentication...');
+        
         // Get the URL hash or query params
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
@@ -21,12 +23,15 @@ const AuthCallback = () => {
         const errorDescription = hashParams.get("error_description") || queryParams.get("error_description");
 
         if (errorParam) {
+          console.error('AuthCallback: OAuth error:', errorDescription || errorParam);
           setError(errorDescription || errorParam);
           setTimeout(() => navigate("/"), 3000);
           return;
         }
 
         if (accessToken && refreshToken) {
+          console.log('AuthCallback: Exchange tokens for session...');
+          
           // Exchange tokens for session
           const { error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
@@ -34,6 +39,7 @@ const AuthCallback = () => {
           });
 
           if (sessionError) {
+            console.error('AuthCallback: Session exchange failed:', sessionError.message);
             setError(sessionError.message);
             setTimeout(() => navigate("/"), 3000);
             return;
@@ -42,23 +48,32 @@ const AuthCallback = () => {
           // Clear the URL hash
           window.history.replaceState({}, "", window.location.pathname);
           
+          console.log('AuthCallback: Session created successfully, redirecting to dashboard');
           // Redirect to dashboard
           navigate("/dashboard");
           return;
         }
 
         // Check if we already have a session (from lovable auth)
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log('AuthCallback: Checking existing session...');
+        const { data: { session }, error: sessionCheckError } = await supabase.auth.getSession();
+        
+        if (sessionCheckError) {
+          console.error('AuthCallback: Session check error:', sessionCheckError.message);
+        }
+        
         if (session) {
+          console.log('AuthCallback: Existing session found, redirecting to dashboard');
           navigate("/dashboard");
           return;
         }
 
-        // No tokens found, redirect to home
+        // No tokens found
+        console.warn('AuthCallback: No authentication tokens found');
         setError("No authentication tokens found. Please try signing in again.");
         setTimeout(() => navigate("/"), 3000);
       } catch (err) {
-        console.error("Auth callback error:", err);
+        console.error("AuthCallback unexpected error:", err);
         setError("An unexpected error occurred during authentication.");
         setTimeout(() => navigate("/"), 3000);
       }
