@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { FullReport, WhyAnalysis } from "@/contexts/HybridScannerContext";
+import { CURRENT_YEAR, getShortMonthYear } from "@/utils/dynamicDate";
 
 interface EnhancedAuditReportProps {
   report: FullReport;
@@ -107,7 +108,7 @@ export const EnhancedAuditReport = ({
           </div>
           <div className="flex flex-col gap-2">
             <Badge variant="outline" className="text-xs bg-white/10 border-white/30">
-              Verified Against Live 2026 Policies
+              Verified Against Live Policies (Updated {getShortMonthYear()})
             </Badge>
             {report.disclosureVerified && showCoinAnimation && (
               <motion.div
@@ -183,8 +184,8 @@ export const EnhancedAuditReport = ({
             }
             policy={report.aiDetected
               ? (report.disclosureVerified
-                  ? report.whyAnalysis.disclosureNote || "Properly disclosed per 2026 Policy."
-                  : "Per April 2026 Rules, 'Altered Content' label is MANDATORY.")
+                  ? report.whyAnalysis.disclosureNote || `Properly disclosed per ${CURRENT_YEAR} Policy.`
+                  : `Per ${getShortMonthYear()} Rules, 'Altered Content' label is MANDATORY.`)
               : undefined
             }
             learnMoreLink={report.whyAnalysis.policyLinks[0]}
@@ -195,7 +196,7 @@ export const EnhancedAuditReport = ({
               why: report.aiDetected 
                 ? (report.disclosureVerified
                     ? "AI elements were detected in your video, but you've properly disclosed them per platform policy."
-                    : "Our AI detected synthetic media elements that require disclosure under 2026 platform policies.")
+                    : `Our AI detected synthetic media elements that require disclosure under ${CURRENT_YEAR} platform policies.`)
                 : "No AI-generated content was detected in your video.",
               howToFix: report.aiDetected && !report.disclosureVerified
                 ? `Add the required disclosure label to your ${platform} metadata:\n• YouTube: Add "Altered Content" label\n• TikTok: Use "AI-generated" tag\n• Facebook/IG: Add "Made with AI" label\n• Dailymotion: Include AI disclosure in description`
@@ -264,7 +265,7 @@ export const EnhancedAuditReport = ({
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pt-4 border-t">
-          <p>Report by TubeClear AI • Verified against Live 2026 Policies</p>
+          <p>Report by TubeClear AI • Verified against Live Policies ({getShortMonthYear()})</p>
           <p className="mt-1">
             Timestamp: {new Date().toISOString()}
           </p>

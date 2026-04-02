@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { CURRENT_YEAR, getShortMonthYear } from "@/utils/dynamicDate";
 
 export interface PolicyRule {
   id: string;
@@ -30,7 +31,7 @@ interface PolicyRulesContextType {
   lastPolicyUpdate: string | null;
 }
 
-// Default policy rules - MULTI-PLATFORM INTERNAL REVIEW STANDARDS 2026
+// Default policy rules - MULTI-PLATFORM INTERNAL REVIEW STANDARDS (Current Year)
 const DEFAULT_RULES: PolicyRule[] = [
   // ==================== YOUTUBE (15 Policies) ====================
   {
@@ -40,7 +41,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No copyrighted music without license",
     keywords: ["copyrighted music", "unlicensed song", "pirated audio"],
     severity: "critical",
-    effectiveDate: "2026-01-01",
+    effectiveDate: `${CURRENT_YEAR}-01-01`,
     description: "YouTube Content ID detects unlicensed music - Internal Review Standard"
   },
   {
@@ -50,7 +51,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No movie/TV clips without fair use justification",
     keywords: ["movie clip", "tv show", "fair use"],
     severity: "high",
-    effectiveDate: "2026-01-01",
+    effectiveDate: `${CURRENT_YEAR}-01-01`,
     description: "Copyrighted video content requires transformative use"
   },
   {
@@ -60,7 +61,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Ad-suitability: No inappropriate language in first 30 seconds",
     keywords: ["profanity", "curse word", "explicit language"],
     severity: "high",
-    effectiveDate: "2026-01-15",
+    effectiveDate: `${CURRENT_YEAR}-01-15`,
     description: "Advertiser-friendly content guidelines - monetization compliance"
   },
   {
@@ -70,7 +71,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No controversial issues for full monetization",
     keywords: ["controversial", "sensitive events", "tragedy"],
     severity: "medium",
-    effectiveDate: "2026-01-15",
+    effectiveDate: `${CURRENT_YEAR}-01-15`,
     description: "Limited or no ads on sensitive content"
   },
   {
@@ -80,7 +81,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Kids safety: No child endangerment or exploitation",
     keywords: ["child safety", "minor protection", "kids content"],
     severity: "critical",
-    effectiveDate: "2026-02-01",
+    effectiveDate: `${CURRENT_YEAR}-02-01`,
     description: "COPPA compliance and YouTube Kids policies"
   },
   {
@@ -90,7 +91,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Made for Kids: Disable comments and notifications",
     keywords: ["made for kids", "children's content"],
     severity: "high",
-    effectiveDate: "2026-02-01",
+    effectiveDate: `${CURRENT_YEAR}-02-01`,
     description: "COPPA requires comment disabling on kids content"
   },
   {
@@ -101,8 +102,8 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "AI disclosure required for synthetic/altered content",
     keywords: ["altered content", "synthetic media", "ai generated", "deepfake"],
     severity: "high",
-    effectiveDate: "2026-03-01",
-    description: "Mandatory 'Altered Content' label per 2026 policy"
+    effectiveDate: `${CURRENT_YEAR}-03-01`,
+    description: `Mandatory 'Altered Content' label per ${CURRENT_YEAR} policy`
   },
   {
     id: "yt-content-1",
@@ -111,7 +112,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No misleading or deceptive content",
     keywords: ["misleading", "deceptive", "fake", "scam", "clickbait"],
     severity: "high",
-    effectiveDate: "2026-01-15",
+    effectiveDate: `${CURRENT_YEAR}-01-15`,
     description: "Content that misleads users about product efficacy or makes false claims"
   },
   {
@@ -121,7 +122,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No harmful or dangerous acts",
     keywords: ["dangerous", "harmful", "challenge", "prank", "stunt"],
     severity: "critical",
-    effectiveDate: "2026-02-01",
+    effectiveDate: `${CURRENT_YEAR}-02-01`,
     description: "Content showing dangerous activities that could cause injury"
   },
   {
@@ -131,7 +132,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No misleading thumbnails",
     keywords: ["misleading thumbnail", "fake thumbnail", "clickbait thumbnail"],
     severity: "high",
-    effectiveDate: "2026-02-15",
+    effectiveDate: `${CURRENT_YEAR}-02-15`,
     description: "Thumbnails must accurately represent video content"
   },
   {
@@ -141,7 +142,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No excessive tag stuffing",
     keywords: ["tag stuffing", "keyword stuffing", "spam tags"],
     severity: "medium",
-    effectiveDate: "2026-03-01",
+    effectiveDate: `${CURRENT_YEAR}-03-01`,
     description: "Using excessive or irrelevant tags to manipulate search"
   },
   
@@ -153,7 +154,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Community Guidelines: No dangerous challenges",
     keywords: ["challenge", "dangerous", "harmful trend"],
     severity: "critical",
-    effectiveDate: "2026-01-20",
+    effectiveDate: `${CURRENT_YEAR}-01-20`,
     description: "Content promoting dangerous challenges or trends"
   },
   {
@@ -163,7 +164,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "AI-generated content label mandatory",
     keywords: ["ai-generated", "ai label", "tiktok ai tag"],
     severity: "high",
-    effectiveDate: "2026-02-15",
+    effectiveDate: `${CURRENT_YEAR}-02-15`,
     description: "TikTok requires AI label for synthetic content"
   },
   {
@@ -173,7 +174,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No QR codes directing outside TikTok",
     keywords: ["qr code", "scan this", "link in bio"],
     severity: "medium",
-    effectiveDate: "2026-03-01",
+    effectiveDate: `${CURRENT_YEAR}-03-01`,
     description: "QR codes must comply with TikTok external link policy"
   },
   {
@@ -183,7 +184,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No bullying or harassment",
     keywords: ["bullying", "harassment", "hate speech"],
     severity: "critical",
-    effectiveDate: "2026-01-20",
+    effectiveDate: `${CURRENT_YEAR}-01-20`,
     description: "Zero tolerance for harassment content"
   },
   {
@@ -193,7 +194,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Creator Fund: Original content only",
     keywords: ["reposted content", "unoriginal", "stolen video"],
     severity: "high",
-    effectiveDate: "2026-02-01",
+    effectiveDate: `${CURRENT_YEAR}-02-01`,
     description: "TikTok Creator Fund requires original content"
   },
   
@@ -205,7 +206,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Reels monetization: No watermarks from other apps",
     keywords: ["tiktok watermark", "logo overlay", "app watermark"],
     severity: "medium",
-    effectiveDate: "2026-01-10",
+    effectiveDate: `${CURRENT_YEAR}-01-10`,
     description: "Instagram Reels bonus program prohibits competitor watermarks"
   },
   {
@@ -215,7 +216,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Branded content disclosure required (#ad, Paid partnership)",
     keywords: ["sponsored", "brand deal", "paid partnership", "#ad"],
     severity: "high",
-    effectiveDate: "2026-02-10",
+    effectiveDate: `${CURRENT_YEAR}-02-10`,
     description: "FTC and Instagram require clear branded content disclosure"
   },
   {
@@ -225,7 +226,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "No misleading product claims",
     keywords: ["miracle", "instant result", "guaranteed", "cure"],
     severity: "high",
-    effectiveDate: "2026-02-10",
+    effectiveDate: `${CURRENT_YEAR}-02-10`,
     description: "False claims about product effectiveness"
   },
   {
@@ -235,7 +236,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Instagram Shopping: Accurate product descriptions",
     keywords: ["product tag", "shopping", "checkout"],
     severity: "medium",
-    effectiveDate: "2026-03-05",
+    effectiveDate: `${CURRENT_YEAR}-03-05`,
     description: "Product tags must match actual items"
   },
   
@@ -247,7 +248,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Reels Play Bonus: No reused content",
     keywords: ["reused content", "compilation", "reposted"],
     severity: "high",
-    effectiveDate: "2026-01-25",
+    effectiveDate: `${CURRENT_YEAR}-01-25`,
     description: "Facebook Reels monetization requires original content"
   },
   {
@@ -257,7 +258,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Branded content tool required for paid partnerships",
     keywords: ["sponsored content", "brand partnership", "paid promotion"],
     severity: "high",
-    effectiveDate: "2026-02-20",
+    effectiveDate: `${CURRENT_YEAR}-02-20`,
     description: "Facebook requires branded content tag for transparency"
   },
   {
@@ -267,7 +268,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Community Standards: No hate speech",
     keywords: ["hate speech", "discrimination", "racist"],
     severity: "critical",
-    effectiveDate: "2026-01-01",
+    effectiveDate: `${CURRENT_YEAR}-01-01`,
     description: "Facebook zero tolerance hate speech policy"
   },
   {
@@ -277,7 +278,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "In-stream ads: 3+ minute videos only",
     keywords: ["in-stream ads", "video length", "monetization"],
     severity: "medium",
-    effectiveDate: "2026-03-10",
+    effectiveDate: `${CURRENT_YEAR}-03-10`,
     description: "Facebook ad breaks require minimum video length"
   },
   
@@ -299,7 +300,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Video quality standards: HD preferred",
     keywords: ["low quality", "poor resolution", "blurry"],
     severity: "low",
-    effectiveDate: "2026-02-01",
+    effectiveDate: `${CURRENT_YEAR}-02-01`,
     description: "Dailymotion recommends HD quality for better reach"
   },
   {
@@ -309,7 +310,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Content ID: Copyright matching system",
     keywords: ["copyright claim", "content id", "rights management"],
     severity: "critical",
-    effectiveDate: "2026-01-01",
+    effectiveDate: `${CURRENT_YEAR}-01-01`,
     description: "Dailymotion uses automated copyright detection"
   }
 ];

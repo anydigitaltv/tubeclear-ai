@@ -4,6 +4,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { CURRENT_YEAR } from "@/utils/dynamicDate";
 
 const faqs = [
   {
@@ -12,7 +13,7 @@ const faqs = [
   },
   {
     q: "How does the AI detect AI-generated content?",
-    a: "Our scanner analyzes audio patterns, visual artifacts, and metadata signals commonly associated with AI-generated voices, deepfakes, and synthetic visuals. Under 2026 YouTube policies, undisclosed AI content can trigger automatic demonetization.",
+    a: `Our scanner analyzes audio patterns, visual artifacts, and metadata signals commonly associated with AI-generated voices, deepfakes, and synthetic visuals. Under ${CURRENT_YEAR} YouTube policies, undisclosed AI content can trigger automatic demonetization.`,
   },
   {
     q: "What is BYOK and is it safe?",

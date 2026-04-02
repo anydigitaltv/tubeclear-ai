@@ -36,6 +36,7 @@ import type { VideoMetadata } from "@/contexts/MetadataFetcherContext";
 import { getPlatformDisplayName, isProtectedPlatform } from "@/utils/urlHelper";
 import { usePolicyRules } from "@/contexts/PolicyRulesContext";
 import RecentScansList from "@/components/RecentScansList";
+import { getShortMonthYear, getPolicyHorizonMessage } from "@/utils/dynamicDate";
 
 interface ProfessionalDashboardProps {
   report: FullReport;
@@ -153,7 +154,7 @@ export const ProfessionalDashboard = ({
     // Simulate policy checking based on report data
     rules.forEach((rule) => {
       const isViolation = report.whyAnalysis.exactViolations?.some(
-        (v: string) => v.toLowerCase().includes(rule.rule.toLowerCase())
+        (v) => v.text.toLowerCase().includes(rule.rule.toLowerCase())
       );
 
       complianceData.push({
@@ -594,7 +595,7 @@ export const ProfessionalDashboard = ({
               </div>
               <Badge variant="outline" className={`bg-slate-700/50 border-slate-600 text-slate-300`}>
                 <Shield className="w-3 h-3 mr-1" />
-                Live 2026 Policies • {platform.toUpperCase()}
+                {getPolicyHorizonMessage()} • {platform.toUpperCase()}
               </Badge>
             </div>
           </CardHeader>

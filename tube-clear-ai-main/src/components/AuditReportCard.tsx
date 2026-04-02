@@ -16,6 +16,7 @@ import {
   Copyright
 } from "lucide-react";
 import type { FullReport, WhyAnalysis } from "@/contexts/HybridScannerContext";
+import { CURRENT_YEAR, getShortMonthYear } from "@/utils/dynamicDate";
 
 interface AuditReportCardProps {
   report: FullReport;
@@ -91,7 +92,7 @@ export const AuditReportCard = ({
             </p>
           </div>
           <Badge variant="outline" className="text-xs bg-white/10 border-white/30">
-            Verified Against Live 2026 Policies
+            Verified Against Live Policies
           </Badge>
         </div>
       </CardHeader>
@@ -154,8 +155,8 @@ export const AuditReportCard = ({
             }
             policy={report.aiDetected
               ? (report.disclosureVerified
-                  ? report.whyAnalysis.disclosureNote || "Properly disclosed per 2026 Policy."
-                  : "Per April 2026 Rules, 'Altered Content' label is MANDATORY.")
+                  ? report.whyAnalysis.disclosureNote || `Properly disclosed per ${CURRENT_YEAR} Policy.`
+                  : `Per ${getShortMonthYear()} Rules, 'Altered Content' label is MANDATORY.`)
               : undefined
             }
             learnMoreLink={report.whyAnalysis.policyLinks[0]}
@@ -209,7 +210,7 @@ export const AuditReportCard = ({
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pt-4 border-t">
-          <p>Report by TubeClear AI • Verified against Live 2026 Policies</p>
+          <p>Report by TubeClear AI • Verified against Live Policies</p>
           <p className="mt-1">
             Timestamp: {new Date().toISOString()}
           </p>
