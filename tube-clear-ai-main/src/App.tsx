@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { GlobalMarketProvider } from "@/contexts/GlobalMarketContext";
 import { PlatformProvider } from "@/contexts/PlatformContext";
 import { CoinProvider } from "@/contexts/CoinContext";
 import { VideoProvider } from "@/contexts/VideoContext";
@@ -44,8 +45,9 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <CoinProvider>
-          <PlatformProvider>
+        <GlobalMarketProvider>
+          <CoinProvider>
+            <PlatformProvider>
             <VideoProvider>
               <AIEngineProvider>
                 <FeatureStoreProvider>
@@ -106,8 +108,9 @@ const App = () => (
             </VideoProvider>
           </PlatformProvider>
         </CoinProvider>
-      </AuthProvider>
-    </TooltipProvider>
+      </GlobalMarketProvider>
+    </AuthProvider>
+  </TooltipProvider>
   </QueryClientProvider>
 );
 

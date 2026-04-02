@@ -26,7 +26,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Session retrieval error:', error.message);
+        
+        // Handle expired sessions
+        if (error.message.includes('expired') || error.message.includes('timeout')) {
+          console.log('Clearing expired session...');
+          supabase.auth.signOut();
+        }
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -36,16 +45,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signInWithGoogle = async () => {
-    // Use production URL on Vercel with /auth/callback, otherwise use current origin
-    const baseUrl = import.meta.env.PROD 
-      ? "https://tubeclear-ai.vercel.app" 
-      : window.location.origin;
-    
-    const redirectUri = `${baseUrl}/auth/callback`;
-    
-    await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: redirectUri,
-    });
+    try {
+      // Use production URL on Vercel with /auth/callback, otherwise use current origin
+      const baseUrl = import.meta.env.PROD 
+        ? "https://tubeclear-ai.vercel.app" 
+        : window.location.origin;
+      
+      const redirectUri = `${baseUrl}/auth/callback`;
+      
+      const { error } = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: redirectUri,
+      });
+      
+      if (error) {
+        console.error('OAuth error:', error);
+        throw error;
+      }
+    } catch (err) {
+      console.error('Login failed:', err);
+      alert('Login failed. Please check your internet connection and try again.');
+    }
   };
 
   const signOut = async () => {
