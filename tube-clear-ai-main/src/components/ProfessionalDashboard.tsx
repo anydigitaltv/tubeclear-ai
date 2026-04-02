@@ -106,7 +106,7 @@ export const ProfessionalDashboard = ({
       const updated = [newScan, ...recentScans].slice(0, 5);
       localStorage.setItem("tubeclear_recent_scans", JSON.stringify(updated));
     } catch (error) {
-      console.error("Failed to save recent scan:", error);
+      // Silently handle error in production
     }
   };
 
@@ -203,6 +203,9 @@ export const ProfessionalDashboard = ({
   const totalPolicies = policyCompliance.length;
   const compliancePercentage = Math.round((passCount / totalPolicies) * 100);
 
+  // Extract failed policies for quick fix banner
+  const failedPolicies = policyCompliance.filter(p => p.status === "FAIL");
+
   // Determine professional verdict
   const getProfessionalVerdict = () => {
     if (report.overallRisk >= 70) {
@@ -265,7 +268,6 @@ export const ProfessionalDashboard = ({
       await new Promise(resolve => setTimeout(resolve, 1500));
       alert("PDF export feature - In production, this generates a professional PDF report with:\n\n• Monetization Readiness Score\n• Policy Compliance Summary\n• AI Analysis & Recommendations\n• Platform-Specific Insights");
     } catch (error) {
-      console.error("PDF export failed:", error);
       alert("Failed to export PDF. Please try again.");
     } finally {
       setIsExporting(false);
@@ -283,7 +285,6 @@ export const ProfessionalDashboard = ({
       // Show toast notification
       alert("Report summary copied to clipboard! Ready to share on WhatsApp/Twitter");
     } catch (error) {
-      console.error("Copy failed:", error);
       alert("Failed to copy. Please try again.");
     }
   };
@@ -303,12 +304,50 @@ export const ProfessionalDashboard = ({
         alert("Report summary copied to clipboard!");
       }
     } catch (error) {
-      console.error("Share failed:", error);
+      // Silently handle share errors
     }
   };
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
+      {/* QUICK FIX SUMMARY BANNER - Shows when policies fail */}
+      {failedPolicies.length > 0 && (
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-500/20 via-orange-500/20 to-red-500/20 backdrop-blur-xl border-2 border-red-500/40 shadow-[0_0_30px_rgba(239,68,68,0.2)]"
+        >
+          <div className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                  ⚠️ Quick Fix Summary - {failCount} Issue{failCount > 1 ? 's' : ''} Found
+                </h3>
+                <div className="space-y-2">
+                  {failedPolicies.slice(0, 3).map((policy, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-sm">
+                      <span className="text-red-400 mt-0.5">•</span>
+                      <div>
+                        <span className="font-semibold text-white">{policy.rule}</span>
+                        <p className="text-slate-300 text-xs mt-0.5">{policy.insight.replace('Fix: ', '')}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {failedPolicies.length > 3 && (
+                    <p className="text-slate-400 text-xs italic mt-2">
+                      + {failedPolicies.length - 3} more issue{failedPolicies.length - 3 > 1 ? 's' : ''} in detailed grid below
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Header - Glassmorphism Effect */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
@@ -433,7 +472,7 @@ export const ProfessionalDashboard = ({
                       animate={{ 
                         strokeDashoffset: 283 - (283 * (100 - report.overallRisk)) / 100 
                       }}
-                      transition={{ duration: 1.5, ease: "easeOut" }}
+                      transition={{ duration: 1.2, ease: [0.4, 0, 0.2, 1] }}
                       cx="50"
                       cy="50"
                       r="45"
@@ -444,16 +483,22 @@ export const ProfessionalDashboard = ({
                       strokeWidth="10"
                       strokeLinecap="round"
                       strokeDasharray={283}
+                      style={{ willChange: 'stroke-dashoffset' }}
                     />
                   </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className={`text-3xl font-bold ${
-                      100 - report.overallRisk >= 70 ? "text-green-400" : 
-                      100 - report.overallRisk >= 50 ? "text-yellow-400" : 
-                      100 - report.overallRisk >= 30 ? "text-orange-400" : "text-red-400"
-                    }`}>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <motion.div
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+                      className={`text-3xl font-bold ${
+                        100 - report.overallRisk >= 70 ? "text-green-400" : 
+                        100 - report.overallRisk >= 50 ? "text-yellow-400" : 
+                        100 - report.overallRisk >= 30 ? "text-orange-400" : "text-red-400"
+                      }`}
+                    >
                       {100 - report.overallRisk}%
-                    </div>
+                    </motion.div>
                     <div className="text-xs text-slate-400 mt-1 text-center leading-tight">
                       Monetization<br/>Ready
                     </div>

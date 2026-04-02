@@ -1,6 +1,7 @@
-import { Clock, ArrowRight, Youtube, Music, Camera, Facebook, Globe } from "lucide-react";
+import { Clock, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getPlatformDisplayName } from "@/utils/urlHelper";
+import { ThumbnailWithFallback } from "@/components/ThumbnailWithFallback";
 
 export interface ScanHistoryItem {
   url: string;
@@ -19,7 +20,7 @@ const RecentScansList = () => {
       const scans = JSON.parse(localStorage.getItem("tubeclear_recent_scans") || "[]");
       setRecentScans(scans);
     } catch (error) {
-      console.error("Failed to load recent scans:", error);
+      // Silently handle load errors
     }
   }, []);
 
@@ -39,18 +40,6 @@ const RecentScansList = () => {
     return "text-red-400";
   };
 
-  const getPlatformIcon = (platform: string) => {
-    const icons: Record<string, any> = {
-      youtube: Youtube,
-      tiktok: Music,
-      instagram: Camera,
-      facebook: Facebook,
-      dailymotion: Globe,
-    };
-    const Icon = icons[platform.toLowerCase()] || Globe;
-    return <Icon className="w-4 h-4 flex-shrink-0" />;
-  };
-
   const handleRescan = (url: string, platform: string) => {
     // Navigate to scan page with URL
     window.location.href = `/?video=${encodeURIComponent(url)}&platform=${platform}`;
@@ -64,28 +53,26 @@ const RecentScansList = () => {
           onClick={() => handleRescan(scan.url, scan.platform)}
           className="flex items-center gap-3 p-3 rounded-lg bg-slate-700/30 hover:bg-slate-700/50 border border-slate-700/50 hover:border-slate-600 transition-all group text-left w-full"
         >
-          {/* Thumbnail or Platform Icon */}
-          <div className="w-12 h-12 rounded-lg bg-slate-800/50 flex items-center justify-center overflow-hidden flex-shrink-0">
-            {scan.thumbnail ? (
-              <img 
-                src={scan.thumbnail} 
-                alt="Thumbnail" 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  e.currentTarget.parentElement?.querySelector('.platform-icon')?.classList.remove('hidden');
-                }}
-              />
-            ) : null}
-            <div className={`platform-icon ${scan.thumbnail ? 'hidden' : ''} text-slate-400`}>
-              {getPlatformIcon(scan.platform)}
-            </div>
-          </div>
+          {/* Thumbnail with Error Boundary */}
+          <ThumbnailWithFallback
+            src={scan.thumbnail}
+            alt={`${scan.title} thumbnail`}
+            platform={scan.platform}
+            fallbackSize="md"
+            className="flex-shrink-0"
+          />
 
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              {getPlatformIcon(scan.platform)}
+              <div className="w-4 h-4 flex-shrink-0">
+                <ThumbnailWithFallback
+                  src={null}
+                  alt={`${scan.platform} icon`}
+                  platform={scan.platform}
+                  fallbackSize="sm"
+                />
+              </div>
               <p className="text-xs font-medium text-white truncate">
                 {scan.title}
               </p>
