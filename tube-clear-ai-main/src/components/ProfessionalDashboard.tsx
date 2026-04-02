@@ -26,12 +26,16 @@ import {
   Award,
   AlertCircle,
   Info,
-  Lightbulb
+  Lightbulb,
+  Copy,
+  Lock,
+  Clock
 } from "lucide-react";
 import type { FullReport, WhyAnalysis, DeepScanResult } from "@/contexts/HybridScannerContext";
 import type { VideoMetadata } from "@/contexts/MetadataFetcherContext";
 import { getPlatformDisplayName, isProtectedPlatform } from "@/utils/urlHelper";
 import { usePolicyRules } from "@/contexts/PolicyRulesContext";
+import RecentScansList from "@/components/RecentScansList";
 
 interface ProfessionalDashboardProps {
   report: FullReport;
@@ -76,7 +80,35 @@ export const ProfessionalDashboard = ({
 }: ProfessionalDashboardProps) => {
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const { getRulesByPlatform } = usePolicyRules();
+
+  // Save to recent scans when scan completes
+  useEffect(() => {
+    if (report && videoUrl) {
+      saveToRecentScans();
+    }
+  }, [report, videoUrl]);
+
+  const saveToRecentScans = () => {
+    try {
+      const recentScans = JSON.parse(localStorage.getItem("tubeclear_recent_scans") || "[]");
+      const newScan = {
+        url: videoUrl,
+        platform,
+        title: metadata?.title || "Scanned Video",
+        riskScore: report.overallRisk,
+        date: new Date().toISOString(),
+        thumbnail: metadata?.thumbnail || null,
+      };
+      
+      // Add to beginning and keep only last 5
+      const updated = [newScan, ...recentScans].slice(0, 5);
+      localStorage.setItem("tubeclear_recent_scans", JSON.stringify(updated));
+    } catch (error) {
+      console.error("Failed to save recent scan:", error);
+    }
+  };
 
   // Generate policy compliance data
   const generatePolicyCompliance = (): PolicyCompliance[] => {
@@ -222,11 +254,37 @@ export const ProfessionalDashboard = ({
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
-      // In production, this would generate an actual PDF
+      // Create a canvas from the report
+      const reportElement = document.getElementById('audit-report-content');
+      if (!reportElement) {
+        throw new Error('Report element not found');
+      }
+      
+      // In production, use html2canvas and jsPDF libraries
+      // For now, show success message
       await new Promise(resolve => setTimeout(resolve, 1500));
-      alert("PDF export feature - In production, this generates a professional PDF report");
+      alert("PDF export feature - In production, this generates a professional PDF report with:\n\n• Monetization Readiness Score\n• Policy Compliance Summary\n• AI Analysis & Recommendations\n• Platform-Specific Insights");
+    } catch (error) {
+      console.error("PDF export failed:", error);
+      alert("Failed to export PDF. Please try again.");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      const summary = `🔍 TubeClear AI Audit Report\n\nPlatform: ${getPlatformDisplayName(platform)}\nRisk Score: ${report.overallRisk}/100\nMonetization: ${100 - report.overallRisk}% Ready\nPolicies Passed: ${passCount}/${totalPolicies}\n\n#TubeClearAI #ContentSafety`;
+      
+      await navigator.clipboard.writeText(summary);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      
+      // Show toast notification
+      alert("Report summary copied to clipboard! Ready to share on WhatsApp/Twitter");
+    } catch (error) {
+      console.error("Copy failed:", error);
+      alert("Failed to copy. Please try again.");
     }
   };
 
@@ -291,6 +349,20 @@ export const ProfessionalDashboard = ({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleCopyLink}
+                disabled={copiedLink}
+                className="bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700/50 hover:text-white"
+              >
+                {copiedLink ? (
+                  <CheckCircle2 className="w-4 h-4 mr-2 text-green-400" />
+                ) : (
+                  <Copy className="w-4 h-4 mr-2" />
+                )}
+                {copiedLink ? "Copied!" : "Copy Link"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleExportPDF}
                 disabled={isExporting}
                 className="bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700/50 hover:text-white"
@@ -344,7 +416,7 @@ export const ProfessionalDashboard = ({
                 </div>
               </div>
 
-              {/* Gauge Meter */}
+              {/* Gauge Meter - MONETIZATION READINESS */}
               <div className="flex items-center justify-center">
                 <div className="relative w-40 h-40">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -359,32 +431,62 @@ export const ProfessionalDashboard = ({
                     <motion.circle
                       initial={{ strokeDashoffset: 283 }}
                       animate={{ 
-                        strokeDashoffset: 283 - (283 * verdict.gaugeValue) / 100 
+                        strokeDashoffset: 283 - (283 * (100 - report.overallRisk)) / 100 
                       }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
                       cx="50"
                       cy="50"
                       r="45"
                       fill="none"
-                      stroke={verdict.gaugeValue >= 70 ? "#ef4444" : 
-                              verdict.gaugeValue >= 50 ? "#f97316" : 
-                              verdict.gaugeValue >= 30 ? "#eab308" : "#22c55e"}
+                      stroke={100 - report.overallRisk >= 70 ? "#22c55e" : 
+                              100 - report.overallRisk >= 50 ? "#eab308" : 
+                              100 - report.overallRisk >= 30 ? "#f97316" : "#ef4444"}
                       strokeWidth="10"
                       strokeLinecap="round"
                       strokeDasharray={283}
                     />
                   </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className={`text-3xl font-bold ${verdict.color}`}>
-                        {verdict.gaugeValue}
-                      </div>
-                      <div className="text-xs text-slate-400">Risk Level</div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className={`text-3xl font-bold ${
+                      100 - report.overallRisk >= 70 ? "text-green-400" : 
+                      100 - report.overallRisk >= 50 ? "text-yellow-400" : 
+                      100 - report.overallRisk >= 30 ? "text-orange-400" : "text-red-400"
+                    }`}>
+                      {100 - report.overallRisk}%
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1 text-center leading-tight">
+                      Monetization<br/>Ready
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Recent Scans Section */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.15 }}
+      >
+        <Card className="border-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl">
+          <CardHeader className="border-b border-slate-700/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Recent Scans
+                </CardTitle>
+                <p className="text-sm text-slate-400 mt-1">
+                  Your last 5 scanned videos
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <RecentScansList />
           </CardContent>
         </Card>
       </motion.div>
@@ -551,6 +653,19 @@ export const ProfessionalDashboard = ({
           </Card>
         </motion.div>
       )}
+
+      {/* Privacy Footer */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="text-center py-4 border-t border-slate-700/50"
+      >
+        <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+          <Lock className="w-3 h-3" />
+          <span>100% Secure & Private. Data is processed in real-time and not stored on our servers.</span>
+        </div>
+      </motion.div>
     </div>
   );
 };
