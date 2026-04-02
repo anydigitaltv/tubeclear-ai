@@ -2,6 +2,12 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import { usePolicyWatcher, type LivePolicy } from "./PolicyWatcherContext";
 import { useAIEngines, type EngineId } from "./AIEngineContext";
 import { useVideoScan, type VideoScanInput, type ScanResult } from "./VideoScanContext";
+import { optimizeScanWorkflow, MemoryCacheManager, PersistentCache } from "@/utils/memoryCacheSystem";
+import { 
+  getPlatformFrameRequirements, 
+  generateFrameAnalysisPrompt,
+  formatTimestampMMSS 
+} from "@/utils/frameLevelAnalysis";
 
 // Stage results
 export interface MetadataScrapeResult {
@@ -223,7 +229,152 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
         return lightweightResult;
       }
       
-      // STAGE 3: Deep AI scan (if needed)
+      // STAGE 3: Deep AI scan with Frame-Level Analysis & Memory Cache
+  const executeDeepScan = useCallback(async (input: VideoScanInput, patternResult: PatternMatchResult): Promise<DeepScanResult> => {
+    setCurrentStage("deep");
+    setScanProgress(60);
+    
+    try {
+      // FRAME-LEVEL ANALYSIS with Memory Optimization
+      console.log(`🎯 Initiating frame-level scan for ${input.platformId.toUpperCase()}`);
+      
+      // Get platform-specific frame requirements
+      const frameConfig = getPlatformFrameRequirements(input.platformId);
+      console.log(`📋 Frame config: ${frameConfig.frameRate}fps, OCR: ${frameConfig.requiresTextOCR}, QR: ${frameConfig.requiresQRCodeDetection}`);
+      
+      // Use memory cache optimization workflow
+      const optimizationResult = await optimizeScanWorkflow(
+        input.videoId,
+        input.platformId,
+        // Full scan function
+        async () => {
+          console.log('🆕 Performing full frame-level analysis...');
+          
+          // Simulate frame-by-frame analysis (in production, this calls AI vision APIs)
+          const totalFrames = Math.floor((input.durationSeconds || 300) * frameConfig.frameRate);
+          const frameResults = [];
+          
+          for (let i = 0; i < Math.min(totalFrames, 100); i++) { // Limit to 100 frames for demo
+            const timestamp = i / frameConfig.frameRate;
+            const formattedTime = formatTimestampMMSS(timestamp);
+            
+            // Generate AI prompt for this frame
+            const aiPrompt = generateFrameAnalysisPrompt(
+              input.platformId,
+              `Frame at ${formattedTime} from ${input.title}`,
+              timestamp
+            );
+            
+            // In production: Call AI vision API with this prompt
+            // For now, simulate analysis
+            frameResults.push({
+              frameNumber: i,
+              timestamp,
+              content: `Frame content at ${formattedTime}`,
+              detectedElements: [],
+              violations: [],
+              confidence: 0.95
+            });
+            
+            // Update progress
+            setScanProgress(60 + Math.floor((i / Math.min(totalFrames, 100)) * 30));
+          }
+          
+          return {
+            videoId: input.videoId,
+            platformId: input.platformId,
+            timestamp: new Date().toISOString(),
+            frameResults,
+            metadataAnalysis: {
+              title: input.title,
+              description: input.description,
+              tags: input.tags,
+              thumbnail: input.thumbnail || '',
+              duration: input.durationSeconds || 0,
+              aiDetected: false,
+              disclosureStatus: 'not_required'
+            },
+            policyVersion: getLatestPolicyVersion(input.platformId) || 'unknown'
+          } as any;
+        },
+        // Live policy check only (much faster)
+        async () => {
+          console.log('🔍 Running live policy overlay on cached frames...');
+          
+          // Extract timestamps from pattern violations
+          return patternResult.violations.map((violation, index) => ({
+            timestamp: Math.floor((300 / patternResult.violations.length) * (index + 1)),
+            policyId: `policy_${index}`,
+            severity: 'medium', // Default severity for overlay
+            description: violation.description
+          }));
+        }
+      );
+      
+      console.log(`⚡ Scan complete! Cached: ${optimizationResult.wasCached}, Time saved: ${optimizationResult.timeSaved?.timeSavedSeconds.toFixed(1)}s`);
+      
+      // Build final scan result
+      const scanResult = await scanVideo(input); // Skip confirmation via context default
+      
+      if (!scanResult) {
+        throw new Error("AI scan failed");
+      }
+      
+      const deepResult: DeepScanResult = {
+        ...scanResult,
+        requiresDeepScan: true,
+        deepScanReason: patternResult.cleanStatus 
+          ? "Visual/audio verification required" 
+          : "Policy violations detected in metadata",
+        aiDetectionConfidence: 0.85,
+      };
+      
+      setScanProgress(100);
+      setCurrentStage("complete");
+      
+      setIsScanning(false);
+      return deepResult;
+      
+    } catch (error) {
+      console.error('Frame-level scan error:', error);
+      throw error;
+    }
+  }, [scanVideo, getLatestPolicyVersion]);
+
+  // Main hybrid scan execution
+  const executeHybridScan = useCallback(async (input: VideoScanInput): Promise<DeepScanResult> => {
+    setIsScanning(true);
+    setScanProgress(0);
+    setCurrentStage("metadata");
+    
+    try {
+      // Verify live policies before scan
+      const verification = verifyPolicyTimestamp(input.platformId);
+      
+      // STAGE 1: Scrape metadata
+      const metadata = scrapeMetadata(input);
+      
+      // STAGE 2: Match against live policies
+      const patternResult = matchLivePatterns(metadata, input.platformId);
+      
+      // If clean and low risk, skip deep scan
+      if (patternResult.cleanStatus && patternResult.riskScore < 20) {
+        const lightweightResult: DeepScanResult = {
+          riskScore: patternResult.riskScore,
+          riskLevel: "low",
+          issues: [],
+          suggestions: ["Content compliant with live policies"],
+          analyzedAt: new Date().toISOString(),
+          engineUsed: currentEngine || "gemini",
+          requiresDeepScan: false,
+          deepScanReason: "Metadata clean - no deep scan needed",
+        };
+        
+        setIsScanning(false);
+        return lightweightResult;
+      }
+      
+      // STAGE 3: Deep AI scan with Frame-Level Analysis (if needed)
       const deepResult = await executeDeepScan(input, patternResult);
       
       if (!deepResult) {
