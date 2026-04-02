@@ -55,7 +55,6 @@ const ViolationAlertPanel = () => {
 
   const handleRescan = (videoId: string) => {
     // In production, this would trigger a rescan
-    console.log(`Rescanning video: ${videoId}`);
     // Navigate to scan page with video ID
     window.location.href = `/?video=${videoId}`;
   };
