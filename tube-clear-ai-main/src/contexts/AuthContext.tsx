@@ -72,10 +72,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Clear any existing broken session first
       await supabase.auth.signOut();
       
-      // Use production URL on Vercel with /auth/callback
+      // Use app's auth callback page (Supabase will handle the OAuth flow)
+      // After successful auth, Supabase redirects to: /auth/callback
       const redirectUri = `${window.location.origin}/auth/callback`;
       
       console.log('Initiating Google OAuth with redirect:', redirectUri);
+      console.log('Supabase will handle callback at:', `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/callback`);
       
       // Use standard Supabase signInWithOAuth
       const { data, error } = await supabase.auth.signInWithOAuth({
