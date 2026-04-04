@@ -95,7 +95,6 @@ const DEFAULT_RULES: PolicyRule[] = [
     description: "COPPA requires comment disabling on kids content"
   },
   {
-    id: "yt-ai-1",
     id: "yt-disclosure-1",
     platformId: "youtube",
     category: "ai_disclosure",
