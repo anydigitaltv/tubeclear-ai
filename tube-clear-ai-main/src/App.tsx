@@ -45,8 +45,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <GlobalMarketProvider>
-          <CoinProvider>
+        <CoinProvider>
+          <GlobalMarketProvider>
             <PlatformProvider>
             <VideoProvider>
               <AIEngineProvider>
@@ -107,8 +107,8 @@ const App = () => (
               </AIEngineProvider>
             </VideoProvider>
           </PlatformProvider>
-        </CoinProvider>
-      </GlobalMarketProvider>
+        </GlobalMarketProvider>
+      </CoinProvider>
     </AuthProvider>
   </TooltipProvider>
   </QueryClientProvider>
