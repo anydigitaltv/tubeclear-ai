@@ -44,73 +44,77 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      {/* BASE PROVIDERS - No dependencies */}
       <AuthProvider>
+        {/* LEVEL 1 - Depends only on AuthProvider */}
         <CoinProvider>
-          <GlobalMarketProvider>
-            <PlatformProvider>
-            <VideoProvider>
-              <AIEngineProvider>
-                <FeatureStoreProvider>
-                  <VideoScanProvider>
-                    <PolicyRulesProvider>
-                      <GhostGuardProvider>
-                        <ContentChangeTrackerProvider>
-                          <DynamicComplianceProvider>
-                            <AIDoctorProvider>
-                              <GuestModeProvider>
-                                <EncryptionProvider>
-                                  <NotificationProvider>
-                                    <PaymentProvider>
-                                      <DisputeProvider>
-                                        <CurrencyProvider>
-                                          <MasterAdminProvider>
-                                            <AuditDoctorProvider>
-                                              <SecureVaultProvider>
-                                                {/* CRITICAL: Universal Audit Report Contexts */}
-                                                <MetadataFetcherProvider>
-                                                  <PolicyWatcherProvider>
-                                                    <HybridScannerProvider>
-                                                      <Toaster />
-                                                      <Sonner />
-                                                      <BrowserRouter>
-                                                        <Routes>
-                                                          <Route path="/" element={<Index />} />
-                                                          <Route path="/auth/callback" element={<AuthCallback />} />
-                                                          <Route path="/dashboard" element={<Dashboard />} />
-                                                          <Route path="/privacy" element={<PrivacyPolicy />} />
-                                                          <Route path="/admin" element={<Admin />} />
-                                                          <Route path="/security" element={<SecuritySettings />} />
-                                                          <Route path="/payment" element={<Payment />} />
-                                                          <Route path="/dispute" element={<DisputeForm />} />
-                                                          <Route path="*" element={<NotFound />} />
-                                                        </Routes>
-                                                      </BrowserRouter>
-                                                    </HybridScannerProvider>
-                                                  </PolicyWatcherProvider>
-                                                </MetadataFetcherProvider>
-                                              </SecureVaultProvider>
-                                            </AuditDoctorProvider>
-                                          </MasterAdminProvider>
-                                        </CurrencyProvider>
-                                      </DisputeProvider>
-                                    </PaymentProvider>
-                                  </NotificationProvider>
-                                </EncryptionProvider>
-                              </GuestModeProvider>
-                            </AIDoctorProvider>
-                          </DynamicComplianceProvider>
-                        </ContentChangeTrackerProvider>
-                      </GhostGuardProvider>
-                    </PolicyRulesProvider>
-                  </VideoScanProvider>
-                </FeatureStoreProvider>
-              </AIEngineProvider>
-            </VideoProvider>
-          </PlatformProvider>
-        </GlobalMarketProvider>
-      </CoinProvider>
-    </AuthProvider>
-  </TooltipProvider>
+          <NotificationProvider>
+            {/* LEVEL 2 - Depends on Auth + Coins + Notifications */}
+            <GlobalMarketProvider>
+              {/* LEVEL 3 - All other providers (no special dependencies) */}
+              <PlatformProvider>
+                <VideoProvider>
+                  <AIEngineProvider>
+                    <FeatureStoreProvider>
+                      <VideoScanProvider>
+                        <PolicyRulesProvider>
+                          <GhostGuardProvider>
+                            <ContentChangeTrackerProvider>
+                              <DynamicComplianceProvider>
+                                <AIDoctorProvider>
+                                  <GuestModeProvider>
+                                    <EncryptionProvider>
+                                      <PaymentProvider>
+                                        <DisputeProvider>
+                                          <CurrencyProvider>
+                                            <MasterAdminProvider>
+                                              <AuditDoctorProvider>
+                                                <SecureVaultProvider>
+                                                  {/* CRITICAL: Universal Audit Report Contexts */}
+                                                  <MetadataFetcherProvider>
+                                                    <PolicyWatcherProvider>
+                                                      <HybridScannerProvider>
+                                                        <Toaster />
+                                                        <Sonner />
+                                                        <BrowserRouter>
+                                                          <Routes>
+                                                            <Route path="/" element={<Index />} />
+                                                            <Route path="/auth/callback" element={<AuthCallback />} />
+                                                            <Route path="/dashboard" element={<Dashboard />} />
+                                                            <Route path="/privacy" element={<PrivacyPolicy />} />
+                                                            <Route path="/admin" element={<Admin />} />
+                                                            <Route path="/security" element={<SecuritySettings />} />
+                                                            <Route path="/payment" element={<Payment />} />
+                                                            <Route path="/dispute" element={<DisputeForm />} />
+                                                            <Route path="*" element={<NotFound />} />
+                                                          </Routes>
+                                                        </BrowserRouter>
+                                                      </HybridScannerProvider>
+                                                    </PolicyWatcherProvider>
+                                                  </MetadataFetcherProvider>
+                                                </SecureVaultProvider>
+                                              </AuditDoctorProvider>
+                                            </MasterAdminProvider>
+                                          </CurrencyProvider>
+                                        </DisputeProvider>
+                                      </PaymentProvider>
+                                    </EncryptionProvider>
+                                  </GuestModeProvider>
+                                </AIDoctorProvider>
+                              </DynamicComplianceProvider>
+                            </ContentChangeTrackerProvider>
+                          </GhostGuardProvider>
+                        </PolicyRulesProvider>
+                      </VideoScanProvider>
+                    </FeatureStoreProvider>
+                  </AIEngineProvider>
+                </VideoProvider>
+              </PlatformProvider>
+            </GlobalMarketProvider>
+          </NotificationProvider>
+        </CoinProvider>
+      </AuthProvider>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
