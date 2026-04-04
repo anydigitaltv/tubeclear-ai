@@ -230,12 +230,6 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       }
       
       // STAGE 3: Deep AI scan with Frame-Level Analysis & Memory Cache
-  const executeDeepScan = useCallback(async (input: VideoScanInput, patternResult: PatternMatchResult): Promise<DeepScanResult> => {
-    setCurrentStage("deep");
-    setScanProgress(60);
-    
-    try {
-      // FRAME-LEVEL ANALYSIS with Memory Optimization
       console.log(`🎯 Initiating frame-level scan for ${input.platformId.toUpperCase()}`);
       
       // Get platform-specific frame requirements
@@ -315,7 +309,6 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       
       // Build final scan result
       const scanResult = await scanVideo(input); // Skip confirmation via context default
-      
       if (!scanResult) {
         throw new Error("AI scan failed");
       }
@@ -337,58 +330,10 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       
     } catch (error) {
       console.error('Frame-level scan error:', error);
-      throw error;
-    }
-  }, [scanVideo, getLatestPolicyVersion]);
-
-  // Main hybrid scan execution
-  const executeHybridScan = useCallback(async (input: VideoScanInput): Promise<DeepScanResult> => {
-    setIsScanning(true);
-    setScanProgress(0);
-    setCurrentStage("metadata");
-    
-    try {
-      // Verify live policies before scan
-      const verification = verifyPolicyTimestamp(input.platformId);
-      
-      // STAGE 1: Scrape metadata
-      const metadata = scrapeMetadata(input);
-      
-      // STAGE 2: Match against live policies
-      const patternResult = matchLivePatterns(metadata, input.platformId);
-      
-      // If clean and low risk, skip deep scan
-      if (patternResult.cleanStatus && patternResult.riskScore < 20) {
-        const lightweightResult: DeepScanResult = {
-          riskScore: patternResult.riskScore,
-          riskLevel: "low",
-          issues: [],
-          suggestions: ["Content compliant with live policies"],
-          analyzedAt: new Date().toISOString(),
-          engineUsed: currentEngine || "gemini",
-          requiresDeepScan: false,
-          deepScanReason: "Metadata clean - no deep scan needed",
-        };
-        
-        setIsScanning(false);
-        return lightweightResult;
-      }
-      
-      // STAGE 3: Deep AI scan with Frame-Level Analysis (if needed)
-      const deepResult = await executeDeepScan(input, patternResult);
-      
-      if (!deepResult) {
-        throw new Error("Deep scan returned null");
-      }
-      
-      setIsScanning(false);
-      return deepResult;
-      
-    } catch (error) {
       setIsScanning(false);
       throw error;
     }
-  }, [scrapeMetadata, matchLivePatterns, executeDeepScan, verifyPolicyTimestamp, currentEngine]);
+  }, [scrapeMetadata, matchLivePatterns, verifyPolicyTimestamp, currentEngine, scanVideo, getLatestPolicyVersion]);
 
   // Get live verification timestamp
   const getLiveVerificationTimestamp = useCallback((): string => {
