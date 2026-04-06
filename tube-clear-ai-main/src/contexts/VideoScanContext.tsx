@@ -107,7 +107,7 @@ const calculateScanCost = (durationSeconds?: number): { cost: number; warning?: 
 };
 
 // Engines that support Vision API
-const VISION_SUPPORTED_ENGINES: EngineId[] = ["gemini", "openai", "claude"];
+const VISION_SUPPORTED_ENGINES: EngineId[] = ["gemini"];
 
 // Scan prompt for AI analysis
 const SCAN_PROMPT = `You are a YouTube/content policy expert. Analyze the following video metadata for potential monetization risks.

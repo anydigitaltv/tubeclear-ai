@@ -12,12 +12,7 @@ interface Engine {
 }
 
 const engines: Engine[] = [
-  { id: "openai", name: "OpenAI", icon: "🤖", adminEnabled: false },
   { id: "gemini", name: "Gemini", icon: "💎", adminEnabled: true },
-  { id: "deepseek", name: "DeepSeek", icon: "🔍", adminEnabled: true },
-  { id: "claude", name: "Claude", icon: "🧠", adminEnabled: true },
-  { id: "mistral", name: "Mistral", icon: "🌀", adminEnabled: false },
-  { id: "qwen", name: "Qwen", icon: "⚡", adminEnabled: false },
   { id: "groq", name: "Groq", icon: "🚀", adminEnabled: true },
 ];
 
