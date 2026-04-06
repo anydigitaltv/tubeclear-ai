@@ -425,6 +425,10 @@ export const ProfessionalDashboard = ({
                   <Badge variant="outline" className="bg-purple-500/20 border-purple-500/50 text-purple-400 text-xs">
                     🔍 {(report as any).requiresDeepScan ? 'Deep Scan (Video+Audio)' : 'Metadata Scan'}
                   </Badge>
+                  {/* Tokens Saved Badge - Loyalty Feature */}
+                  <Badge variant="outline" className="bg-green-500/20 border-green-500/50 text-green-400 text-xs font-semibold animate-pulse">
+                    💰 ${(report as any).tokensSaved || 0} Saved
+                  </Badge>
                   {isGuest && (
                     <Badge variant="outline" className="bg-yellow-500/20 border-yellow-500/50 text-yellow-400 text-xs">
                       👤 Guest Mode
@@ -493,6 +497,10 @@ export const ProfessionalDashboard = ({
                   <div className={`${verdict.bgColor} ${verdict.borderColor} border rounded-lg p-3`}>
                     <div className="text-2xl font-bold text-white">{report.overallRisk}/100</div>
                     <div className="text-xs text-slate-400">Risk Score</div>
+                  </div>
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-green-400">${(report as any).tokensSaved || 0}</div>
+                    <div className="text-xs text-green-400">💰 Tokens Saved</div>
                   </div>
                   <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                     <div className="text-2xl font-bold text-green-400">{passCount}</div>

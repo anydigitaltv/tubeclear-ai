@@ -249,16 +249,17 @@ export const InsightsWindow = ({
           </div>
         )}
 
-        {/* Platform Policy Links */}
+        {/* Platform Policy Links - Educational Resources */}
         <div className="pt-4 border-t border-border/50">
-          <h3 className="text-xs font-semibold text-white mb-3">
-            Official Policy Resources
+          <h3 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+            📚 Learn & Improve Your Content
           </h3>
           <div className="grid grid-cols-1 gap-2">
+            {/* Official Guidelines */}
             <Button
               variant="outline"
               size="sm"
-              className="justify-start text-xs h-auto py-2"
+              className="justify-start text-xs h-auto py-2 bg-blue-500/5 border-blue-500/30 hover:bg-blue-500/10"
               onClick={() => {
                 const urls: Record<string, string> = {
                   youtube: "https://support.google.com/youtube/answer/2801973",
@@ -271,6 +272,36 @@ export const InsightsWindow = ({
             >
               <ExternalLink className="w-3 h-3 mr-2" />
               View {platformId.charAt(0).toUpperCase() + platformId.slice(1)} Guidelines
+            </Button>
+            
+            {/* Monetization Tips */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-start text-xs h-auto py-2 bg-green-500/5 border-green-500/30 hover:bg-green-500/10"
+              onClick={() => {
+                const tipsUrls: Record<string, string> = {
+                  youtube: "https://support.google.com/youtube/answer/7285707",
+                  tiktok: "https://www.tiktok.com/creators/creator-portal/en/tiktok-creator-fund/",
+                  instagram: "https://creators.instagram.com/blog/monetization",
+                  facebook: "https://www.facebook.com/creators/monetization",
+                };
+                window.open(tipsUrls[platformId] || tipsUrls.youtube, "_blank");
+              }}
+            >
+              💰 Learn Monetization Best Practices
+            </Button>
+            
+            {/* Common Mistakes Guide */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-start text-xs h-auto py-2 bg-purple-500/5 border-purple-500/30 hover:bg-purple-500/10"
+              onClick={() => {
+                window.open("https://support.google.com/youtube/answer/2801973?hl=en#zippy=%2Cadvertiser-friendly-content-guidelines", "_blank");
+              }}
+            >
+              ⚠️ Avoid These Common Mistakes
             </Button>
           </div>
         </div>

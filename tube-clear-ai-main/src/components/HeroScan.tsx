@@ -68,6 +68,17 @@ const HeroScan = ({ onScan, isScanning }: HeroScanProps) => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3 max-w-2xl mx-auto">
+            {/* Success Message - Positive UX */}
+            <div className="glass-card border border-green-500/30 bg-green-500/5 p-3 rounded-lg">
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-green-400 font-medium">✓ Ready to Scan - Free & Instant Analysis</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 ml-4">
+                Your video will be analyzed by AI for policy compliance and monetization safety
+              </p>
+            </div>
+
             {/* Platform Selection Indicator */}
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
               {getPlatformIcon(detectPlatform(url || ''))}

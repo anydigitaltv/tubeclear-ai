@@ -15,6 +15,7 @@ export interface VideoScanInput {
   thumbnail?: string;
   videoUrl?: string;
   durationSeconds?: number; // Added for dynamic pricing
+  requiresDeepScan?: boolean; // Indicates if deep scan is needed
 }
 
 // Platform Moderator Final Verdict
@@ -48,6 +49,7 @@ export interface ScanResult {
   engineUsed: EngineId;
   thumbnailStatus?: "safe" | "flagged" | "not_scanned" | "unsupported";
   thumbnailIssues?: string[];
+  tokensSaved?: number; // Loyalty feature - shows money saved by free scans
 }
 
 export interface ThumbnailScanResult {
@@ -396,11 +398,18 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
 
     // Parse result
     const aiResult = JSON.parse(result);
+    
+    // Calculate tokens saved (Loyalty feature)
+    // Deep scan would cost $0.50, metadata scan $0.10 in other apps
+    const isDeepScan = input.requiresDeepScan;
+    const tokensSavedAmount = isDeepScan ? 0.50 : 0.10;
+    
     const parsedResult: ScanResult = {
       ...aiResult,
       analyzedAt: new Date().toISOString(),
       engineUsed: engineUsed || "openai",
       finalVerdict: getFinalVerdict(aiResult.riskScore, input.platformId), // Calculate verdict
+      tokensSaved: tokensSavedAmount, // Show user how much money they saved
     };
 
     // Scan thumbnail if provided
