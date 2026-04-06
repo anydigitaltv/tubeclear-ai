@@ -138,10 +138,8 @@ const Index = () => {
         videoUrl: url,
       });
       
-      // STEP 7: Deduct coins (ONLY if cost > 0)
-      if (cost > 0) {
-        await spendCoins(cost, scanType, `Scanning: ${fetchedMetadata.title}`);
-      }
+      // STEP 7: ALL SCANS ARE FREE - No coin deduction
+      // Coin logic removed - scans are completely free for everyone
       
       // STEP 8: Generate why analysis with disclosure verification
       const whyAnalysis = generateWhyAnalysis(result, {

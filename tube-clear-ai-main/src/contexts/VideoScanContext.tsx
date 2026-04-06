@@ -170,20 +170,17 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
     return primaryPlatform?.id === platformId;
   }, [primaryPlatform]);
 
-  // Check if user can scan for free (primary channel)
+  // Check if user can scan for free (ALL SCANS ARE NOW FREE)
   const canScanForFree = useCallback((platformId: PlatformId): boolean => {
-    return isPrimaryPlatform(platformId);
-  }, [isPrimaryPlatform]);
-
-  // Check if scan requires payment
-  const requiresPayment = useCallback((platformId: PlatformId): boolean => {
-    // If primary platform, free
-    if (canScanForFree(platformId)) return false;
-    // If paid user (has agency mode), free
-    if (isPaidUser()) return false;
-    // Otherwise, requires payment
+    // All scans are free for everyone (guest and login)
     return true;
-  }, [canScanForFree, isPaidUser]);
+  }, []);
+
+  // Check if scan requires payment (ALWAYS FALSE - ALL FREE)
+  const requiresPayment = useCallback((platformId: PlatformId): boolean => {
+    // No payment required - all scans are free
+    return false;
+  }, []);
 
   // Check if engine supports Vision API
   const supportsVision = useCallback((engineId: EngineId): boolean => {
@@ -336,29 +333,8 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
       // In production, show toast notification
     }
 
-    // Check if payment required
-    if (requiresPayment(input.platformId)) {
-      // Check if user can afford scan
-      if (!canAfford(cost)) {
-        setIsScanning(false);
-        throw new Error(`Insufficient coins. You need ${cost} coins for this scan. Please purchase more coins or connect a primary platform.`);
-      }
-      
-      // Confirmation dialog (skip for paid users or if explicitly skipped)
-      if (!skipConfirmation && !isPaidUser()) {
-        const confirmed = window.confirm(
-          `Is scan par ${cost} coins katenge. Agree?\n\nVideo Duration: ${input.durationSeconds ? `${Math.floor(input.durationSeconds / 60)}m ${input.durationSeconds % 60}s` : 'Unknown'}\nScan Cost: ${cost} coins`
-        );
-        
-        if (!confirmed) {
-          setIsScanning(false);
-          return null;
-        }
-      }
-      
-      // Deduct coins
-      await spendCoins(cost, "scan_deep", `Dynamic scan (${input.durationSeconds || 0}s) for video: ${input.title}`);
-    }
+    // ALL SCANS ARE FREE - No payment check needed
+    // Payment logic removed - scans are completely free for everyone
 
     // Build prompt
     const prompt = SCAN_PROMPT

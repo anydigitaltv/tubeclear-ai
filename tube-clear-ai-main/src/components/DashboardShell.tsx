@@ -169,7 +169,7 @@ const DashboardShell = () => {
               No Platforms Connected
             </h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Connect your platforms to start scanning. You need coins to perform scans.
+              Connect your platforms to start scanning. All scans are completely free!
             </p>
           </div>
         )}
