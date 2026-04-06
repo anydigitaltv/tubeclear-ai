@@ -19,6 +19,7 @@ interface ConnectedPlatformRow {
   user_id: string;
   platform_id: PlatformId;
   account_name: string;
+  channel_url?: string;
   is_primary: boolean;
   created_at: string;
 }
@@ -137,12 +138,14 @@ export const PlatformProvider = ({ children }: { children: ReactNode }) => {
             user_id: user.id,
             platform_id: platformId,
             account_name: accountName,
+            channel_url: accountName.startsWith('http') ? accountName : `https://${accountName}`,
             is_primary: willBePrimary,
           }, {
             onConflict: "user_id,platform_id"
           });
 
         if (error) {
+          console.error("Supabase connection error:", error);
           // Revert on error
           setPlatforms(prev => prev.map(p => {
             if (p.id === platformId) {
@@ -153,6 +156,7 @@ export const PlatformProvider = ({ children }: { children: ReactNode }) => {
           return { success: false, error: error.message };
         }
       } catch (err) {
+        console.error("Platform connection failed:", err);
         // Revert on error
         setPlatforms(prev => prev.map(p => {
           if (p.id === platformId) {
