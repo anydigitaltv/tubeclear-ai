@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { validateSocialLink, normalizeUrl, extractUsername } from "@/utils/socialLinkValidator";
 import type { Platform, PlatformId } from "@/contexts/PlatformContext";
 
 interface PlatformCardProps {
@@ -33,20 +34,57 @@ const iconMap: Record<PlatformId, React.ComponentType<{ className?: string }>> =
 const PlatformCard = ({ platform, onConnect, onDisconnect }: PlatformCardProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const [accountName, setAccountName] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const { toast } = useToast();
   const Icon = iconMap[platform.id];
 
+  // Map platform ID to display name for validation
+  const getPlatformDisplayName = (id: PlatformId): string => {
+    const map: Record<PlatformId, string> = {
+      youtube: "YouTube",
+      tiktok: "TikTok",
+      instagram: "Instagram",
+      facebook: "Facebook",
+      dailymotion: "Dailymotion",
+    };
+    return map[id];
+  };
+
   const handleConnect = async () => {
     if (!accountName.trim()) return;
     
+    // Normalize URL (add https:// if missing)
+    const normalizedUrl = normalizeUrl(accountName.trim());
+    
+    // Validate the social link
+    const platformName = getPlatformDisplayName(platform.id);
+    const validation = validateSocialLink(platformName, normalizedUrl);
+    
+    if (!validation.valid) {
+      setValidationError(validation.msg);
+      toast({
+        title: "Invalid Link",
+        description: validation.msg,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Clear validation error
+    setValidationError(null);
+    
+    // Extract username from URL for display
+    const username = extractUsername(platformName, normalizedUrl) || accountName.trim();
+    
     setIsConnecting(true);
-    const result = await onConnect(accountName.trim());
+    const result = await onConnect(username);
     setIsConnecting(false);
     
     if (result.success) {
       setAccountName("");
+      setValidationError(null);
       setShowDialog(false);
       toast({
         title: "Platform Connected",
@@ -184,17 +222,50 @@ const PlatformCard = ({ platform, onConnect, onDisconnect }: PlatformCardProps) 
           <DialogHeader>
             <DialogTitle className="text-gradient">Connect {platform.name}</DialogTitle>
             <DialogDescription>
-              Enter your {platform.name} account name to connect.
+              Enter your {platform.name} profile URL to connect.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-3">
             <Input
-              placeholder="Account name or username"
+              placeholder={`Example: ${platform.id}.com/@username`}
               value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
-              className="bg-secondary/50"
+              onChange={(e) => {
+                setAccountName(e.target.value);
+                setValidationError(null); // Clear error on input change
+              }}
+              className={`bg-secondary/50 ${validationError ? "border-red-500" : ""}`}
               onKeyDown={(e) => e.key === "Enter" && handleConnect()}
             />
+            
+            {/* Validation Error Message */}
+            {validationError && (
+              <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded p-2">
+                {validationError}
+              </div>
+            )}
+            
+            {/* Help Text */}
+            <div className="text-xs text-muted-foreground">
+              <p>Supported formats:</p>
+              <ul className="list-disc list-inside mt-1 space-y-0.5">
+                {platform.id === "youtube" && (
+                  <>
+                    <li>youtube.com/@username</li>
+                    <li>youtube.com/channel/xxx</li>
+                    <li>youtu.be/xxx</li>
+                  </>
+                )}
+                {platform.id === "tiktok" && <li>tiktok.com/@username</li>}
+                {platform.id === "instagram" && <li>instagram.com/username</li>}
+                {platform.id === "facebook" && (
+                  <>
+                    <li>facebook.com/username</li>
+                    <li>facebook.com/pages/xxx</li>
+                  </>
+                )}
+                {platform.id === "dailymotion" && <li>dailymotion.com/video/xxx</li>}
+              </ul>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowDialog(false)} disabled={isConnecting}>
