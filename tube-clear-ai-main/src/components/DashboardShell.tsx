@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import PlatformCard from "@/components/PlatformCard";
 import VideoDashboard from "@/components/VideoDashboard";
 import TopBar from "@/components/TopBar";
-import { GlobalSafetyMeter, TokenSavedCounter, VideosInVaultWidget } from "@/components/GlobalSafetyMeter";
+import GlobalSafetyMeter, { TokenSavedCounter, VideosInVaultWidget } from "@/components/GlobalSafetyMeter";
 import { InsightsWindow } from "@/components/InsightsWindow";
 import { ViolationWarningsPanel } from "@/components/ViolationWarningsPanel";
 import { useHistoricalVault } from "@/utils/historicalVault";
@@ -118,20 +118,8 @@ const DashboardShell = () => {
         {/* NEW: Safety Meter & Vault Stats Widgets */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Global Safety Meter - Takes 2 columns on large screens */}
-          <div className="lg:col-span-2 space-y-6">
-            <GlobalSafetyMeter
-              safetyScore={safetyMeter}
-              totalVideos={stats.totalVideos}
-              totalScans={stats.totalScans}
-              isLoading={vaultLoading}
-            />
-            
-            {/* Insights Window - Below Safety Meter */}
-            <InsightsWindow
-              safetyScore={safetyMeter}
-              violations={[]}
-              platformId="youtube"
-            />
+          <div className="lg:col-span-2">
+            <GlobalSafetyMeter />
           </div>
           
           {/* Right side widgets stack */}
