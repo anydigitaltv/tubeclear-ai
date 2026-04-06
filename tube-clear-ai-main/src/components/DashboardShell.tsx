@@ -5,6 +5,8 @@ import PlatformCard from "@/components/PlatformCard";
 import VideoDashboard from "@/components/VideoDashboard";
 import TopBar from "@/components/TopBar";
 import { GlobalSafetyMeter, TokenSavedCounter, VideosInVaultWidget } from "@/components/GlobalSafetyMeter";
+import { InsightsWindow } from "@/components/InsightsWindow";
+import { ViolationWarningsPanel } from "@/components/ViolationWarningsPanel";
 import { useHistoricalVault } from "@/utils/historicalVault";
 import { usePlatforms, type PlatformId } from "@/contexts/PlatformContext";
 
@@ -116,12 +118,19 @@ const DashboardShell = () => {
         {/* NEW: Safety Meter & Vault Stats Widgets */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Global Safety Meter - Takes 2 columns on large screens */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
             <GlobalSafetyMeter
               safetyScore={safetyMeter}
               totalVideos={stats.totalVideos}
               totalScans={stats.totalScans}
               isLoading={vaultLoading}
+            />
+            
+            {/* Insights Window - Below Safety Meter */}
+            <InsightsWindow
+              safetyScore={safetyMeter}
+              violations={[]}
+              platformId="youtube"
             />
           </div>
           
@@ -132,6 +141,9 @@ const DashboardShell = () => {
               totalVideos={stats.totalVideos}
               platformsConnected={stats.platformsConnected}
             />
+            
+            {/* Violation Warnings Panel */}
+            <ViolationWarningsPanel />
           </div>
         </div>
 

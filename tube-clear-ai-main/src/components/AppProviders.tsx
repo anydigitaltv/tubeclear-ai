@@ -25,6 +25,7 @@ import { AuditDoctorProvider } from "@/contexts/AuditDoctorContext";
 import { SecureVaultProvider } from "@/contexts/SecureVaultContext";
 import { MetadataFetcherProvider } from "@/contexts/MetadataFetcherContext";
 import { PolicyWatcherProvider } from "@/contexts/PolicyWatcherContext";
+import { PolicySyncProvider } from "@/contexts/PolicySyncContext";
 import { HybridScannerProvider } from "@/contexts/HybridScannerContext";
 
 const queryClient = new QueryClient();
@@ -67,9 +68,11 @@ export const AppProviders = ({ children }: { children: ReactNode }) => {
                                                   <SecureVaultProvider>
                                                     <MetadataFetcherProvider>
                                                       <PolicyWatcherProvider>
-                                                        <HybridScannerProvider>
-                                                          {children}
-                                                        </HybridScannerProvider>
+                                                        <PolicySyncProvider>
+                                                          <HybridScannerProvider>
+                                                            {children}
+                                                          </HybridScannerProvider>
+                                                        </PolicySyncProvider>
                                                       </PolicyWatcherProvider>
                                                     </MetadataFetcherProvider>
                                                   </SecureVaultProvider>
