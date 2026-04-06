@@ -2,8 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-// AI Engine Priority: 1. Gemini, 2. OpenAI, 3. Groq, 4. Grok, 5. Claude, 6. Qwen, 7. DeepSeek
-export type EngineId = "gemini" | "openai" | "groq" | "grok" | "claude" | "qwen" | "deepseek";
+// AI Engine Priority: 1. Gemini 1.5 Flash (Deep Scan), 2. Groq Llama 3.1 (Quick Check), 3. OpenAI (Backup)
+export type EngineId = "gemini" | "groq" | "openai";
 
 export interface AIEngine {
   id: EngineId;
@@ -36,13 +36,9 @@ interface AIEngineContextType {
 }
 
 const ENGINES: AIEngine[] = [
-  { id: "gemini", name: "Google Gemini", priority: 1, keyPlaceholder: "AIza..." },
-  { id: "openai", name: "OpenAI", priority: 2, keyPlaceholder: "sk-..." },
-  { id: "groq", name: "Groq", priority: 3, keyPlaceholder: "gsk_..." },
-  { id: "grok", name: "Grok (xAI)", priority: 4, keyPlaceholder: "xai-..." },
-  { id: "claude", name: "Claude (Anthropic)", priority: 5, keyPlaceholder: "sk-ant-..." },
-  { id: "qwen", name: "Qwen (Alibaba)", priority: 6, keyPlaceholder: "sk-..." },
-  { id: "deepseek", name: "DeepSeek", priority: 7, keyPlaceholder: "sk-..." },
+  { id: "gemini", name: "Gemini 1.5 Flash", priority: 1, keyPlaceholder: "AIza...", endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash" },
+  { id: "groq", name: "Groq Llama 3.1", priority: 2, keyPlaceholder: "gsk_...", endpoint: "https://api.groq.com/openai/v1/chat/completions" },
+  { id: "openai", name: "OpenAI GPT-4", priority: 3, keyPlaceholder: "sk-...", endpoint: "https://api.openai.com/v1/chat/completions" },
 ];
 
 const API_KEYS_STORAGE_KEY = "tubeclear_api_keys";
@@ -264,27 +260,21 @@ export const AIEngineProvider = ({ children }: { children: ReactNode }) => {
 
     const key = keyData.key.trim();
     
-    // Basic format validation
+    // Basic format validation for 3 engines only
     let status: KeyStatus = "ready";
     
     switch (engineId) {
       case "gemini":
         status = key.startsWith("AIza") ? "ready" : "invalid";
         break;
-      case "openai":
-        status = key.startsWith("sk-") ? "ready" : "invalid";
-        break;
       case "groq":
         status = key.startsWith("gsk_") ? "ready" : "invalid";
         break;
-      case "grok":
-        status = key.startsWith("xai-") ? "ready" : "invalid";
-        break;
-      case "claude":
-        status = key.startsWith("sk-ant-") ? "ready" : "invalid";
+      case "openai":
+        status = key.startsWith("sk-") ? "ready" : "invalid";
         break;
       default:
-        status = key.length > 10 ? "ready" : "invalid";
+        status = "invalid";
     }
 
     // Update status
