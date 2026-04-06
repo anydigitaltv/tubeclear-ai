@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import PlatformCard from "@/components/PlatformCard";
 import VideoDashboard from "@/components/VideoDashboard";
 import TopBar from "@/components/TopBar";
+import { GlobalSafetyMeter, TokenSavedCounter, VideosInVaultWidget } from "@/components/GlobalSafetyMeter";
+import { useHistoricalVault } from "@/utils/historicalVault";
 import { usePlatforms, type PlatformId } from "@/contexts/PlatformContext";
 
 const DashboardShell = () => {
   const { platforms, connectPlatform, disconnectPlatform, getConnectedCount, isLoading } = usePlatforms();
+  const { stats, safetyMeter, isLoading: vaultLoading, refreshStats } = useHistoricalVault();
   const [activeFilter, setActiveFilter] = useState<PlatformId | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
@@ -107,6 +110,28 @@ const DashboardShell = () => {
                 {activeFilter || "All Platforms"}
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* NEW: Safety Meter & Vault Stats Widgets */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Global Safety Meter - Takes 2 columns on large screens */}
+          <div className="lg:col-span-2">
+            <GlobalSafetyMeter
+              safetyScore={safetyMeter}
+              totalVideos={stats.totalVideos}
+              totalScans={stats.totalScans}
+              isLoading={vaultLoading}
+            />
+          </div>
+          
+          {/* Right side widgets stack */}
+          <div className="space-y-4">
+            <TokenSavedCounter tokensSaved={stats.totalTokensSaved} />
+            <VideosInVaultWidget
+              totalVideos={stats.totalVideos}
+              platformsConnected={stats.platformsConnected}
+            />
           </div>
         </div>
 
