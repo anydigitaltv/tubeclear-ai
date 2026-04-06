@@ -14,12 +14,17 @@ import ShareButton from "@/components/ShareButton";
 import ScrollReveal from "@/components/ScrollReveal";
 import EngineGrid from "@/components/EngineGrid";
 import ViolationAlertPanel from "@/components/ViolationAlertPanel";
+import PreScanConsentModal from "@/components/PreScanConsentModal";
 import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
 import { useCoins, type CoinTransactionType } from "@/contexts/CoinContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
 import { toast } from "sonner";
 import type { PlatformId } from "@/contexts/PlatformContext";
+
+// Store pending scan input for modal callbacks
+let pendingScanInput: any = null;
 
 // Calculate scan cost based on duration (from VideoScanContext)
 const calculateScanCost = (durationSeconds?: number): { cost: number; warning?: string } => {
@@ -58,13 +63,24 @@ const Index = () => {
   const { user, isGuest } = useAuth();
   const { balance, spendCoins } = useCoins();
   const { fetchMetadataWithFailover, getLastFailoverResult } = useMetadataFetcher();
-  const { executeHybridScan, generateWhyAnalysis } = useHybridScanner();
+  const { executeHybridScan, executePreScanOnly, generateWhyAnalysis } = useHybridScanner();
   
   const [activeSection, setActiveSection] = useState("scan");
   const [isScanning, setIsScanning] = useState(false);
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>(loadHistory);
+  
+  // Pre-scan modal state
+  const [showPreScanModal, setShowPreScanModal] = useState(false);
+  const [preScanResult, setPreScanResult] = useState<{
+    riskScore: number;
+    verdict: FinalVerdict;
+    issues: string[];
+    requiresDeepScan: boolean;
+    pendingInput: any;
+    patternResult: any;
+  } | null>(null);
 
   const sectionRefs = {
     scan: useRef<HTMLDivElement>(null),
@@ -100,15 +116,9 @@ const Index = () => {
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
       setMetadata(fetchedMetadata);
       
-      // STEP 4: ALL SCANS ARE FREE - No cost calculation needed
-      let cost = 0;
-      let scanType: CoinTransactionType = "scan_deep";
-      
-      // All scans are now completely free for everyone
-      toast.success("Scan is FREE!");
-      
-      // STEP 6: Execute hybrid scan
-      const result: DeepScanResult = await executeHybridScan({
+      // NEW STEP 4: Run Pre-Scan only (Stages 1 & 2)
+      toast.info("Running Pre-Scan analysis...");
+      const preScanData = await executePreScanOnly({
         videoId: url.split('/').pop() || 'unknown',
         platformId: platform,
         title: fetchedMetadata.title,
@@ -118,22 +128,65 @@ const Index = () => {
         videoUrl: url,
       });
       
-      // STEP 7: ALL SCANS ARE FREE - No coin deduction
-      // Coin logic removed - scans are completely free for everyone
-      
-      // STEP 8: Generate why analysis with disclosure verification
-      const whyAnalysis = generateWhyAnalysis(result, {
+      // Store pending input for modal callbacks
+      pendingScanInput = {
+        videoId: url.split('/').pop() || 'unknown',
+        platformId: platform,
         title: fetchedMetadata.title,
-        description: fetchedMetadata.description,
         tags: fetchedMetadata.tags,
-        extractedAt: new Date().toISOString()
-      }, platform);
-      
-      // STEP 9: Build full report
-      const report: FullReport = {
+        description: fetchedMetadata.description,
+        durationSeconds: fetchedMetadata.durationSeconds,
         videoUrl: url,
+      };
+      
+      // Show pre-scan consent modal
+      setPreScanResult({
+        riskScore: preScanData.riskScore,
+        verdict: getFinalVerdict(preScanData.riskScore, platform),
+        issues: preScanData.issues,
+        requiresDeepScan: preScanData.requiresDeepScan,
+        pendingInput: pendingScanInput,
+        patternResult: null,
+      });
+      setShowPreScanModal(true);
+      setIsScanning(false); // Stop scanning indicator, waiting for user choice
+      
+    } catch (error) {
+      console.error('Pre-scan failed:', error);
+      toast.error('Pre-scan failed. Please try again.');
+      setIsScanning(false);
+    }
+  };
+
+  // Handle user choosing to proceed with deep scan
+  const handleProceedToDeepScan = async () => {
+    setShowPreScanModal(false);
+    setIsScanning(true);
+    
+    try {
+      if (!pendingScanInput) {
+        toast.error("Scan data lost. Please try again.");
+        return;
+      }
+      
+      toast.success("Proceeding to Deep Scan...");
+      
+      // Execute full hybrid scan (all 3 stages)
+      const result: DeepScanResult = await executeHybridScan(pendingScanInput);
+      
+      // Generate why analysis with disclosure verification
+      const whyAnalysis = generateWhyAnalysis(result, {
+        title: pendingScanInput.title,
+        description: pendingScanInput.description,
+        tags: pendingScanInput.tags,
+        extractedAt: new Date().toISOString()
+      }, pendingScanInput.platformId);
+      
+      // Build full report
+      const report: FullReport = {
+        videoUrl: pendingScanInput.videoUrl,
         verifiedTimestamp: new Date().toISOString(),
-        platform: platform,
+        platform: pendingScanInput.platformId,
         overallRisk: result.riskScore,
         aiDetected: result.aiDetectionConfidence > 0.7,
         disclosureVerified: whyAnalysis.disclosureStatus === "verified",
@@ -143,29 +196,69 @@ const Index = () => {
       
       setAuditReport(report);
       
-      // STEP 10: Show failover result
-      const failoverResult = getLastFailoverResult();
-      if (failoverResult?.engineUsed && failoverResult.engineUsed !== "native_api") {
-        toast.info(`Metadata generated by ${failoverResult.engineUsed}`);
-      }
-      
-      // STEP 11: Add to history
+      // Add to history
       const newItem: ScanHistoryItem = {
-        url,
-        title: fetchedMetadata.title,
+        url: pendingScanInput.videoUrl,
+        title: pendingScanInput.title,
         risk: result.riskScore,
         date: new Date().toLocaleDateString(),
       };
-      const updated = [newItem, ...scanHistory.filter((h) => h.url !== url)].slice(0, 20);
+      const updated = [newItem, ...scanHistory.filter((h) => h.url !== newItem.url)].slice(0, 20);
       setScanHistory(updated);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
       
+      toast.success("Deep Scan Complete!");
+      
     } catch (error) {
-      console.error('Scan failed:', error);
-      toast.error('Scan failed. Please try again.');
+      console.error('Deep scan failed:', error);
+      toast.error('Deep scan failed. Please try again.');
     } finally {
       setIsScanning(false);
+      pendingScanInput = null;
     }
+  };
+
+  // Handle user choosing to skip deep scan
+  const handleSkipDeepScan = () => {
+    setShowPreScanModal(false);
+    
+    if (!preScanResult) return;
+    
+    // Create a lightweight report from pre-scan results only
+    const lightweightReport: FullReport = {
+      videoUrl: preScanResult.pendingInput.videoUrl,
+      verifiedTimestamp: new Date().toISOString(),
+      platform: preScanResult.pendingInput.platformId,
+      overallRisk: preScanResult.riskScore,
+      aiDetected: false,
+      disclosureVerified: preScanResult.riskScore < 20,
+      whyAnalysis: {
+        riskReason: `Pre-scan detected ${preScanResult.issues.length} issue(s) in metadata.`,
+        policyLinks: [],
+        exactViolations: preScanResult.issues.map(issue => ({
+          text: issue,
+          severity: preScanResult.riskScore > 50 ? "high" : "medium"
+        })),
+        disclosureStatus: preScanResult.riskScore < 20 ? "verified" : "missing"
+      },
+      shareable: true
+    };
+    
+    setAuditReport(lightweightReport);
+    
+    // Add to history
+    const newItem: ScanHistoryItem = {
+      url: preScanResult.pendingInput.videoUrl,
+      title: preScanResult.pendingInput.title,
+      risk: preScanResult.riskScore,
+      date: new Date().toLocaleDateString(),
+    };
+    const updated = [newItem, ...scanHistory.filter((h) => h.url !== newItem.url)].slice(0, 20);
+    setScanHistory(updated);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    
+    toast.success("Pre-Scan Complete! (Deep scan skipped)");
+    pendingScanInput = null;
   };
 
   return (
@@ -258,6 +351,15 @@ const Index = () => {
       </div>
 
       <ShareButton />
+      
+      {/* Pre-Scan Consent Modal */}
+      <PreScanConsentModal
+        isOpen={showPreScanModal}
+        onClose={() => setShowPreScanModal(false)}
+        onProceedToDeepScan={handleProceedToDeepScan}
+        onSkipDeepScan={handleSkipDeepScan}
+        preScanResult={preScanResult}
+      />
     </SidebarProvider>
   );
 };
