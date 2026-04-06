@@ -100,32 +100,12 @@ const Index = () => {
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
       setMetadata(fetchedMetadata);
       
-      // STEP 4: Calculate scan cost based on duration and API key usage
+      // STEP 4: ALL SCANS ARE FREE - No cost calculation needed
       let cost = 0;
       let scanType: CoinTransactionType = "scan_deep";
       
-      if (hasUserApiKey) {
-        // FREE SCAN - User provided their own API key
-        cost = 0;
-        scanType = "scan_deep"; // Still record it but with 0 cost
-        toast.success("Using your API key - Scan is FREE!");
-      } else if (isGuest) {
-        // Guest Mode - Basic Scan is FREE
-        cost = 0;
-        scanType = "scan_deep";
-        toast.info("Guest Mode: Free basic scan");
-      } else {
-        // Logged-in user without API key - Charge 5 coins
-        cost = calculateScanCost(fetchedMetadata.durationSeconds).cost;
-        scanType = "scan_deep";
-        
-        // STEP 5: Check balance (ONLY if no API key)
-        if (balance < cost) {
-          toast.error(`Insufficient coins. You need ${cost} coins but have ${balance}.`);
-          setIsScanning(false);
-          return;
-        }
-      }
+      // All scans are now completely free for everyone
+      toast.success("Scan is FREE!");
       
       // STEP 6: Execute hybrid scan
       const result: DeepScanResult = await executeHybridScan({

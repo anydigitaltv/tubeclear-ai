@@ -67,7 +67,7 @@ const DashboardShell = () => {
                     <Sparkles className="h-4 w-4 text-accent" />
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Connect your platforms to start scanning. You need coins to perform scans.
+                    Connect your platforms to start scanning. All scans are completely free!
                   </p>
                 </div>
               </div>

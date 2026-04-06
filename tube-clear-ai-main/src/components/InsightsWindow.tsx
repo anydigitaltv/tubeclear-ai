@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   AlertCircle, 
   CheckCircle2, 
@@ -149,12 +150,21 @@ export const InsightsWindow = ({
         {/* Detailed Violations List */}
         {violations.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Shield className="w-4 h-4 text-primary" />
-              Detected Issues ({violations.length})
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                <Shield className="w-4 h-4 text-primary" />
+                Detected Issues ({violations.length})
+              </h3>
+              {violations.length > 3 && (
+                <span className="text-xs text-blue-400">↓ Scroll to view all</span>
+              )}
+            </div>
 
-            <div className="space-y-3">
+            <ScrollArea 
+              className="h-[400px] w-full pr-4" 
+              style={{ scrollbarWidth: 'thin', scrollbarColor: '#64748b #1e293b' }}
+            >
+              <div className="space-y-3">
               {violations.map((violation, index) => (
                 <div
                   key={violation.id}
@@ -222,6 +232,7 @@ export const InsightsWindow = ({
                 </div>
               ))}
             </div>
+            </ScrollArea>
           </div>
         )}
 

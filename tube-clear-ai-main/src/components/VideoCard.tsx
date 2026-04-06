@@ -83,11 +83,26 @@ const VideoCard = ({ video }: VideoCardProps) => {
 
         {/* Risk Score */}
         {video.riskScore !== undefined && (
-          <div className="absolute top-2 right-2">
+          <div className="absolute top-2 right-2 flex flex-col gap-1">
             <Badge className={cn("text-[10px] px-1.5 py-0.5", getRiskColor(video.riskScore))}>
               <Shield className="h-3 w-3 mr-0.5" />
               {video.riskScore}%
             </Badge>
+            {/* AI Engine Badge */}
+            {(video as any).engineUsed && (
+              <Badge className="bg-blue-500/80 text-white text-[9px] px-1.5 py-0.5">
+                🤖 {(video as any).engineUsed === 'gemini' ? 'Gemini' : 
+                    (video as any).engineUsed === 'groq' ? 'Groq' :
+                    (video as any).engineUsed === 'openai' ? 'GPT-4' :
+                    (video as any).engineUsed}
+              </Badge>
+            )}
+            {/* Scan Type Badge */}
+            {(video as any).scanType && (
+              <Badge className="bg-purple-500/80 text-white text-[9px] px-1.5 py-0.5">
+                🔍 {(video as any).scanType === 'deep' ? 'Deep' : 'Meta'}
+              </Badge>
+            )}
           </div>
         )}
       </div>
@@ -97,6 +112,20 @@ const VideoCard = ({ video }: VideoCardProps) => {
         <h3 className="font-medium text-sm text-foreground line-clamp-2 mb-2 min-h-[2.5rem]">
           {video.title}
         </h3>
+
+        {/* Scan Details Tooltip (on hover) */}
+        {(video as any).scanDetails && (
+          <div className="mb-2 p-2 bg-slate-800/50 rounded text-[10px] text-slate-400 hidden group-hover:block">
+            <div className="font-semibold text-slate-300 mb-1">✓ Checked:</div>
+            <div className="flex flex-wrap gap-1">
+              {(video as any).scanDetails.title && <span>📝Title</span>}
+              {(video as any).scanDetails.description && <span>📄Desc</span>}
+              {(video as any).scanDetails.tags && <span>🏷️Tags</span>}
+              {(video as any).scanDetails.video && <span>🎬Video</span>}
+              {(video as any).scanDetails.audio && <span>🎵Audio</span>}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">

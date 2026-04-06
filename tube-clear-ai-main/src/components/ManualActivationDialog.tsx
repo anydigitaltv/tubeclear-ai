@@ -82,25 +82,25 @@ export const ManualActivationDialog = ({
 
             {/* Cost Breakdown */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-200">
-                <Coins className="w-5 h-5 text-blue-600" />
+              <div className="flex items-center gap-2 bg-green-50 p-3 rounded-lg border border-green-200">
+                <Coins className="w-5 h-5 text-green-600" />
                 <div>
-                  <p className="text-xs text-blue-700">Cost</p>
-                  <p className="font-bold text-blue-900">{coinCost} coins</p>
+                  <p className="text-xs text-green-700">Cost</p>
+                  <p className="font-bold text-green-900">FREE!</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 bg-green-50 p-3 rounded-lg border border-green-200">
-                <Clock className="w-5 h-5 text-green-600" />
+              <div className="flex items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <Clock className="w-5 h-5 text-blue-600" />
                 <div>
-                  <p className="text-xs text-green-700">Duration</p>
-                  <p className="font-bold text-green-900">{duration}</p>
+                  <p className="text-xs text-blue-700">Duration</p>
+                  <p className="font-bold text-blue-900">{duration}</p>
                 </div>
               </div>
             </div>
 
-            {/* User Balance */}
-            <div className={`p-3 rounded-lg border ${
+            {/* User Balance - Hidden since scans are free */}
+            {/* <div className={`p-3 rounded-lg border ${
               insufficientBalance 
                 ? "bg-red-50 border-red-200" 
                 : "bg-gray-50 border-gray-200"
@@ -119,7 +119,7 @@ export const ManualActivationDialog = ({
                   Insufficient balance
                 </p>
               )}
-            </div>
+            </div> */}
 
             {/* Important Notice */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
@@ -139,31 +139,20 @@ export const ManualActivationDialog = ({
               Cancel
             </Button>
             
-            {insufficientBalance ? (
-              <Button
-                variant="destructive"
-                disabled
-                className="w-full sm:w-auto"
-              >
-                <Coins className="w-4 h-4 mr-2" />
-                Buy Coins
-              </Button>
-            ) : (
-              <Button
-                onClick={handleConfirm}
-                disabled={isProcessing}
-                className="w-full sm:w-auto"
-              >
-                {isProcessing ? (
-                  <>Processing...</>
-                ) : (
-                  <>
-                    <Coins className="w-4 h-4 mr-2" />
-                    Confirm -{coinCost} coins
-                  </>
-                )}
-              </Button>
-            )}
+            <Button
+              onClick={handleConfirm}
+              disabled={isProcessing}
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+            >
+              {isProcessing ? (
+                <>Processing...</>
+              ) : (
+                <>
+                  <Shield className="w-4 h-4 mr-2" />
+                  Activate Free Feature
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -245,14 +234,6 @@ export const PreScanCalculator = ({
               <p className="font-bold text-blue-900">{formatDuration(videoLength)}</p>
             </div>
 
-            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
-              <div className="flex items-center gap-2 mb-1">
-                <Coins className="w-4 h-4 text-purple-600" />
-                <span className="text-xs text-purple-700">Cost</span>
-              </div>
-              <p className="font-bold text-purple-900">{costPerScan} coins</p>
-            </div>
-
             <div className="bg-green-50 p-3 rounded-lg border border-green-200">
               <div className="flex items-center gap-2 mb-1">
                 <Shield className="w-4 h-4 text-green-600" />
@@ -260,10 +241,18 @@ export const PreScanCalculator = ({
               </div>
               <p className="font-bold text-green-900 capitalize">{platformId}</p>
             </div>
+            
+            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+              <div className="flex items-center gap-2 mb-1">
+                <Coins className="w-4 h-4 text-purple-600" />
+                <span className="text-xs text-purple-700">Cost</span>
+              </div>
+              <p className="font-bold text-purple-900">FREE!</p>
+            </div>
           </div>
 
-          {/* Balance Display */}
-          <div className={`p-4 rounded-lg border ${
+          {/* Balance Display - Hidden since scans are free */}
+          {/* <div className={`p-4 rounded-lg border ${
             insufficientBalance 
               ? "bg-red-50 border-red-200" 
               : "bg-gray-50 border-gray-200"
@@ -289,7 +278,7 @@ export const PreScanCalculator = ({
                 <p>You need {costPerScan - userBalance} more coins</p>
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* Important Notice */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
@@ -309,41 +298,20 @@ export const PreScanCalculator = ({
             Cancel
           </Button>
           
-          {insufficientBalance ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={onUseBYOK}
-                disabled={isProcessing}
-                className="sm:ml-2"
-              >
-                Use BYOK
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={onBuyCoins}
-                disabled={isProcessing}
-              >
-                <Coins className="w-4 h-4 mr-2" />
-                Buy Coins
-              </Button>
-            </>
-          ) : (
-            <Button
-              onClick={handleConfirm}
-              disabled={isProcessing}
-              className="sm:ml-2"
-            >
-              {isProcessing ? (
-                <>Scanning...</>
-              ) : (
-                <>
-                  <Coins className="w-4 h-4 mr-2" />
-                  Confirm Scan (-{costPerScan} coins)
-                </>
-              )}
-            </Button>
-          )}
+          <Button
+            onClick={handleConfirm}
+            disabled={isProcessing}
+            className="sm:ml-2 bg-green-600 hover:bg-green-700"
+          >
+            {isProcessing ? (
+              <>Scanning...</>
+            ) : (
+              <>
+                <Shield className="w-4 h-4 mr-2" />
+                Start Free Scan
+              </>
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

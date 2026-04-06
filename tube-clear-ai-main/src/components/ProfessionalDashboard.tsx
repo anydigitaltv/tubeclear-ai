@@ -414,6 +414,17 @@ export const ProfessionalDashboard = ({
                     <FileText className="w-3 h-3 mr-1" />
                     v{new Date().toISOString().split('T')[0]}
                   </Badge>
+                  {/* AI Engine Used Badge */}
+                  <Badge variant="outline" className="bg-blue-500/20 border-blue-500/50 text-blue-400 text-xs">
+                    🤖 AI: {report.engineUsed === 'gemini' ? 'Gemini 1.5 Flash' : 
+                           report.engineUsed === 'groq' ? 'Groq Llama 3.1' :
+                           report.engineUsed === 'openai' ? 'GPT-4' :
+                           report.engineUsed}
+                  </Badge>
+                  {/* Scan Type Badge */}
+                  <Badge variant="outline" className="bg-purple-500/20 border-purple-500/50 text-purple-400 text-xs">
+                    🔍 {(report as any).requiresDeepScan ? 'Deep Scan (Video+Audio)' : 'Metadata Scan'}
+                  </Badge>
                   {isGuest && (
                     <Badge variant="outline" className="bg-yellow-500/20 border-yellow-500/50 text-yellow-400 text-xs">
                       👤 Guest Mode
@@ -591,6 +602,9 @@ export const ProfessionalDashboard = ({
                 </CardTitle>
                 <p className="text-sm text-slate-400 mt-1">
                   {totalPolicies} policies checked • {compliancePercentage}% compliant
+                  {policyCompliance.length > 5 && (
+                    <span className="ml-2 text-xs text-blue-400">↓ Scroll to view all</span>
+                  )}
                 </p>
               </div>
               <Badge variant="outline" className={`bg-slate-700/50 border-slate-600 text-slate-300`}>
@@ -600,7 +614,7 @@ export const ProfessionalDashboard = ({
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="max-h-[600px] w-full">
+            <ScrollArea className="h-[500px] w-full rounded-b-lg" style={{ scrollbarWidth: 'thin', scrollbarColor: '#64748b #1e293b' }}>
               <div className="divide-y divide-slate-700/50">
                 {policyCompliance.map((policy, index) => (
                   <motion.div
@@ -680,6 +694,46 @@ export const ProfessionalDashboard = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
+              {/* What Was Checked Section */}
+              <div className="bg-slate-700/30 border border-slate-600/50 rounded-lg p-4">
+                <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  What Was Checked
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-slate-800/50 rounded p-2 text-center">
+                    <div className="text-lg mb-1">📝</div>
+                    <div className="text-xs text-slate-300">Title</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded p-2 text-center">
+                    <div className="text-lg mb-1">📄</div>
+                    <div className="text-xs text-slate-300">Description</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded p-2 text-center">
+                    <div className="text-lg mb-1">🏷️</div>
+                    <div className="text-xs text-slate-300">Tags</div>
+                  </div>
+                  {(report as any).requiresDeepScan && (
+                    <>
+                      <div className="bg-slate-800/50 rounded p-2 text-center">
+                        <div className="text-lg mb-1">🎬</div>
+                        <div className="text-xs text-slate-300">Video Frames</div>
+                      </div>
+                      <div className="bg-slate-800/50 rounded p-2 text-center">
+                        <div className="text-lg mb-1">🎵</div>
+                        <div className="text-xs text-slate-300">Audio/OCR</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="mt-3 text-xs text-slate-400">
+                  <strong>AI Engine:</strong> {report.engineUsed === 'gemini' ? 'Google Gemini 1.5 Flash' : 
+                                              report.engineUsed === 'groq' ? 'Groq Llama 3.1 70B' :
+                                              report.engineUsed === 'openai' ? 'OpenAI GPT-4' :
+                                              report.engineUsed}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-400 mb-2">Why This Score?</h4>

@@ -17,9 +17,31 @@ export interface VideoScanInput {
   durationSeconds?: number; // Added for dynamic pricing
 }
 
+// Platform Moderator Final Verdict
+export type FinalVerdict = "PASS" | "FLAGGED" | "FAILED";
+
+// Platform-specific thresholds for verdicts
+const PLATFORM_THRESHOLDS = {
+  youtube: { pass: 30, flagged: 60 },
+  tiktok: { pass: 25, flagged: 55 },
+  instagram: { pass: 28, flagged: 58 },
+  facebook: { pass: 30, flagged: 60 },
+  dailymotion: { pass: 30, flagged: 60 },
+};
+
+// Calculate final verdict based on risk score and platform
+export const getFinalVerdict = (riskScore: number, platformId: PlatformId): FinalVerdict => {
+  const threshold = PLATFORM_THRESHOLDS[platformId] || PLATFORM_THRESHOLDS.youtube;
+  
+  if (riskScore <= threshold.pass) return "PASS";
+  if (riskScore <= threshold.flagged) return "FLAGGED";
+  return "FAILED";
+};
+
 export interface ScanResult {
   riskScore: number;
   riskLevel: "low" | "medium" | "high" | "critical";
+  finalVerdict: FinalVerdict; // NEW: Platform moderator verdict
   issues: string[];
   suggestions: string[];
   analyzedAt: string;
@@ -373,10 +395,12 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Parse result
+    const aiResult = JSON.parse(result);
     const parsedResult: ScanResult = {
-      ...JSON.parse(result),
+      ...aiResult,
       analyzedAt: new Date().toISOString(),
       engineUsed: engineUsed || "openai",
+      finalVerdict: getFinalVerdict(aiResult.riskScore, input.platformId), // Calculate verdict
     };
 
     // Scan thumbnail if provided
@@ -426,7 +450,13 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
         .limit(50);
 
       if (error) throw error;
-      return (data as VideoScanRecord[]) || [];
+      
+      // Properly cast JSON data to VideoScanRecord
+      if (!data) return [];
+      return data.map(record => ({
+        ...record,
+        scan_result: record.scan_result as unknown as ScanResult,
+      })) as VideoScanRecord[];
     } catch (error) {
       console.error("Error fetching scan history:", error);
       return [];
