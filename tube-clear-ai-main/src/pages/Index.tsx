@@ -72,7 +72,7 @@ const Index = () => {
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>(loadHistory);
-  const [auditConfigs, setAuditConfigs] = useState<Array<{id: string, label: string}>>([]);
+  const [auditConfigs, setAuditConfigs] = useState<Array<{id: string, label: string, engine_type: string, system_prompt: string}>>([]);
   const [selectedConfig, setSelectedConfig] = useState<string>("");
   
   // Pre-scan modal state
@@ -93,7 +93,7 @@ const Index = () => {
         // @ts-ignore
         const { data, error } = await supabase
           .from("audit_configs")
-          .select("id, label")
+          .select("id, label, engine_type, system_prompt")
           .eq("is_active", true)
           .order("created_at", { ascending: true });
 
@@ -197,10 +197,17 @@ const Index = () => {
         return;
       }
       
-      toast.success("Proceeding to Deep Scan...");
+      // Get selected audit config
+      const selectedAuditConfig = auditConfigs.find(c => c.id === selectedConfig);
       
-      // Execute full hybrid scan (all 3 stages)
-      const result: DeepScanResult = await executeHybridScan(pendingScanInput);
+      toast.success(`Proceeding to Deep Scan with ${selectedAuditConfig?.label || 'default config'}...`);
+      
+      // Execute full hybrid scan with selected config's engine and prompt
+      const result: DeepScanResult = await executeHybridScan(
+        pendingScanInput,
+        selectedAuditConfig?.engine_type,
+        selectedAuditConfig?.system_prompt
+      );
       
       // Generate why analysis with disclosure verification
       const whyAnalysis = generateWhyAnalysis(result, {

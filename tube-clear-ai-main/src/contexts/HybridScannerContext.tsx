@@ -34,7 +34,7 @@ interface HybridScannerContextType {
   isScanning: boolean;
   currentStage: "metadata" | "pattern" | "deep" | "complete";
   scanProgress: number; // 0-100%
-  executeHybridScan: (input: VideoScanInput) => Promise<DeepScanResult>;
+  executeHybridScan: (input: VideoScanInput, engineType?: string, systemPrompt?: string) => Promise<DeepScanResult>;
   executePreScanOnly: (input: VideoScanInput) => Promise<{ riskScore: number; issues: string[]; requiresDeepScan: boolean }>;
   getLiveVerificationTimestamp: () => string;
   generateWhyAnalysis: (result: DeepScanResult, metadata?: MetadataScrapeResult, platformId?: string) => WhyAnalysis;
@@ -198,10 +198,15 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
   }, [scanVideo, currentEngine]);
 
   // Main hybrid scan execution
-  const executeHybridScan = useCallback(async (input: VideoScanInput): Promise<DeepScanResult> => {
+  const executeHybridScan = useCallback(async (input: VideoScanInput, engineType?: string, systemPrompt?: string): Promise<DeepScanResult> => {
     setIsScanning(true);
     setScanProgress(0);
     setCurrentStage("metadata");
+    
+    // Log selected config
+    if (engineType) {
+      console.log(`🎯 Using audit config - Engine: ${engineType}, Custom Prompt: ${systemPrompt ? 'Yes' : 'No'}`);
+    }
     
     try {
       // Verify live policies before scan

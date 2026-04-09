@@ -20,9 +20,9 @@ import { toast } from "sonner";
 interface AuditConfig {
   id: string;
   label: string;
-  description: string;
+  engine_type: string; // 'gemini' or 'groq'
+  system_prompt: string;
   is_active: boolean;
-  config_data: any;
   created_at: string;
 }
 
@@ -33,9 +33,9 @@ const AuditConfigsAdmin = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     label: "",
-    description: "",
+    engine_type: "gemini",
+    system_prompt: "",
     is_active: true,
-    config_data: "{}",
   });
 
   useEffect(() => {
@@ -70,15 +70,15 @@ const AuditConfigsAdmin = () => {
       // @ts-ignore
       const { error } = await supabase.from("audit_configs").insert({
         label: formData.label,
-        description: formData.description,
+        engine_type: formData.engine_type,
+        system_prompt: formData.system_prompt,
         is_active: formData.is_active,
-        config_data: JSON.parse(formData.config_data),
       });
 
       if (error) throw error;
 
       toast.success("Audit config added successfully");
-      setFormData({ label: "", description: "", is_active: true, config_data: "{}" });
+      setFormData({ label: "", engine_type: "gemini", system_prompt: "", is_active: true });
       setShowAddForm(false);
       fetchConfigs();
     } catch (error: any) {
@@ -99,9 +99,9 @@ const AuditConfigsAdmin = () => {
         .from("audit_configs")
         .update({
           label: formData.label,
-          description: formData.description,
+          engine_type: formData.engine_type,
+          system_prompt: formData.system_prompt,
           is_active: formData.is_active,
-          config_data: JSON.parse(formData.config_data),
         })
         .eq("id", id);
 
@@ -109,7 +109,7 @@ const AuditConfigsAdmin = () => {
 
       toast.success("Audit config updated successfully");
       setEditingId(null);
-      setFormData({ label: "", description: "", is_active: true, config_data: "{}" });
+      setFormData({ label: "", engine_type: "gemini", system_prompt: "", is_active: true });
       fetchConfigs();
     } catch (error: any) {
       console.error("Error updating config:", error);
@@ -138,15 +138,15 @@ const AuditConfigsAdmin = () => {
     setEditingId(config.id);
     setFormData({
       label: config.label,
-      description: config.description,
+      engine_type: config.engine_type,
+      system_prompt: config.system_prompt,
       is_active: config.is_active,
-      config_data: JSON.stringify(config.config_data, null, 2),
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ label: "", description: "", is_active: true, config_data: "{}" });
+    setFormData({ label: "", engine_type: "gemini", system_prompt: "", is_active: true });
   };
 
   if (loading) {
@@ -206,23 +206,26 @@ const AuditConfigsAdmin = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe this audit configuration..."
-                rows={2}
-              />
+              <Label htmlFor="engine_type">AI Engine</Label>
+              <select
+                id="engine_type"
+                value={formData.engine_type}
+                onChange={(e) => setFormData({ ...formData, engine_type: e.target.value })}
+                className="w-full rounded-md border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm"
+              >
+                <option value="gemini">Gemini 1.5 Flash</option>
+                <option value="groq">Groq Llama 3.1</option>
+                <option value="openai">OpenAI GPT-4</option>
+              </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="config_data">Config Data (JSON)</Label>
+              <Label htmlFor="system_prompt">System Prompt</Label>
               <Textarea
-                id="config_data"
-                value={formData.config_data}
-                onChange={(e) => setFormData({ ...formData, config_data: e.target.value })}
-                placeholder='{"key": "value"}'
-                rows={4}
+                id="system_prompt"
+                value={formData.system_prompt}
+                onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+                placeholder="Enter the system prompt for this audit config..."
+                rows={6}
                 className="font-mono text-sm"
               />
             </div>
@@ -247,7 +250,8 @@ const AuditConfigsAdmin = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead>Engine</TableHead>
+                <TableHead>System Prompt</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -256,7 +260,7 @@ const AuditConfigsAdmin = () => {
             <TableBody>
               {configs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No audit configs found. Click "Add Config" to create one.
                   </TableCell>
                 </TableRow>
@@ -274,16 +278,34 @@ const AuditConfigsAdmin = () => {
                         <span className="font-medium">{config.label}</span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {editingId === config.id ? (
+                        <select
+                          value={formData.engine_type}
+                          onChange={(e) => setFormData({ ...formData, engine_type: e.target.value })}
+                          className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm"
+                        >
+                          <option value="gemini">Gemini</option>
+                          <option value="groq">Groq</option>
+                          <option value="openai">OpenAI</option>
+                        </select>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          {config.engine_type}
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="max-w-[300px]">
                       {editingId === config.id ? (
                         <Textarea
-                          value={formData.description}
-                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                          rows={2}
+                          value={formData.system_prompt}
+                          onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+                          rows={3}
+                          className="text-xs"
                         />
                       ) : (
-                        <span className="text-sm text-muted-foreground line-clamp-2">
-                          {config.description || "—"}
+                        <span className="text-xs text-muted-foreground line-clamp-3 font-mono">
+                          {config.system_prompt || "—"}
                         </span>
                       )}
                     </TableCell>
