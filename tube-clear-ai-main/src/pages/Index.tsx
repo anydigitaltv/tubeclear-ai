@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
@@ -15,11 +15,13 @@ import ScrollReveal from "@/components/ScrollReveal";
 import EngineGrid from "@/components/EngineGrid";
 import ViolationAlertPanel from "@/components/ViolationAlertPanel";
 import PreScanConsentModal from "@/components/PreScanConsentModal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
 import { useCoins, type CoinTransactionType } from "@/contexts/CoinContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { PlatformId } from "@/contexts/PlatformContext";
 
@@ -70,6 +72,8 @@ const Index = () => {
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>(loadHistory);
+  const [auditConfigs, setAuditConfigs] = useState<Array<{id: string, label: string}>>([]);
+  const [selectedConfig, setSelectedConfig] = useState<string>("");
   
   // Pre-scan modal state
   const [showPreScanModal, setShowPreScanModal] = useState(false);
@@ -81,6 +85,30 @@ const Index = () => {
     pendingInput: any;
     patternResult: any;
   } | null>(null);
+
+  // Fetch audit configs from database
+  useEffect(() => {
+    const fetchAuditConfigs = async () => {
+      try {
+        // @ts-ignore
+        const { data, error } = await supabase
+          .from("audit_configs")
+          .select("id, label")
+          .eq("is_active", true)
+          .order("created_at", { ascending: true });
+
+        if (error) throw error;
+        setAuditConfigs(data || []);
+        if (data && data.length > 0) {
+          setSelectedConfig(data[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch audit configs:", error);
+      }
+    };
+
+    fetchAuditConfigs();
+  }, []);
 
   const sectionRefs = {
     scan: useRef<HTMLDivElement>(null),
@@ -281,6 +309,26 @@ const Index = () => {
 
           <main className="flex-1 overflow-y-auto">
             <div ref={sectionRefs.scan}>
+              {/* Audit Config Dropdown */}
+              {auditConfigs.length > 0 && (
+                <div className="container mx-auto px-6 pt-6 pb-2">
+                  <div className="max-w-2xl mx-auto">
+                    <Select value={selectedConfig} onValueChange={setSelectedConfig}>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-700">
+                        <SelectValue placeholder="Select audit type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {auditConfigs.map((config) => (
+                          <SelectItem key={config.id} value={config.id}>
+                            {config.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              
               <HeroScan onScan={handleScan} isScanning={isScanning} />
               {isScanning && <ScanSkeleton />}
               {auditReport && metadata && (
