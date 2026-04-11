@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, Heart, MessageCircle, Clock, Shield, Youtube, Music2, Instagram, Facebook, PlayCircle, ImageOff } from "lucide-react";
+import { Eye, Heart, MessageCircle, Clock, Shield, Youtube, Music2, Instagram, Facebook, PlayCircle, ImageOff, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Video } from "@/contexts/VideoContext";
@@ -26,6 +26,14 @@ const platformColors: Record<PlatformId, string> = {
   dailymotion: "text-cyan-500",
 };
 
+const platformBgColors: Record<PlatformId, string> = {
+  youtube: "bg-red-500/20 text-red-400",
+  tiktok: "bg-gray-700/50 text-white",
+  instagram: "bg-pink-500/20 text-pink-400",
+  facebook: "bg-blue-500/20 text-blue-400",
+  dailymotion: "bg-cyan-500/20 text-cyan-400",
+};
+
 const formatNumber = (num: number): string => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -47,6 +55,7 @@ const formatDate = (dateString: string): string => {
 const VideoCard = ({ video }: VideoCardProps) => {
   const PlatformIcon = platformIcons[video.platformId];
   const platformColor = platformColors[video.platformId];
+  const platformBg = platformBgColors[video.platformId];
   const [imageError, setImageError] = useState(false);
 
   const getRiskColor = (score?: number) => {
@@ -54,6 +63,13 @@ const VideoCard = ({ video }: VideoCardProps) => {
     if (score < 30) return "text-green-500";
     if (score < 70) return "text-yellow-500";
     return "text-red-500";
+  };
+
+  const getRiskBadgeColor = (score?: number) => {
+    if (!score) return "bg-gray-500/20 text-gray-400";
+    if (score < 30) return "bg-green-500/20 text-green-400";
+    if (score < 70) return "bg-yellow-500/20 text-yellow-400";
+    return "bg-red-500/20 text-red-400";
   };
 
   // Platform-specific gradient backgrounds for fallback
@@ -66,7 +82,7 @@ const VideoCard = ({ video }: VideoCardProps) => {
   };
 
   return (
-    <Card className="glass-card overflow-hidden hover:border-primary/30 transition-all duration-300 group">
+    <Card className="glass-card overflow-hidden hover:border-primary/30 transition-all duration-300 group relative">
       {/* Thumbnail */}
       <div className={cn(
         "relative aspect-video overflow-hidden bg-gradient-to-br",
@@ -87,6 +103,18 @@ const VideoCard = ({ video }: VideoCardProps) => {
           </div>
         )}
         
+        {/* Platform Badge */}
+        <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 text-white text-xs rounded-md uppercase font-bold z-10">
+          {video.platformId}
+        </div>
+
+        {/* Scanning Overlay */}
+        {video.riskScore === undefined && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+            <span className="text-white text-sm animate-pulse">🤖 Scanning Video...</span>
+          </div>
+        )}
+
         {/* Duration Badge */}
         <div className="absolute bottom-2 right-2">
           <Badge className="bg-black/80 text-white text-[10px] px-1.5 py-0.5">
@@ -95,20 +123,12 @@ const VideoCard = ({ video }: VideoCardProps) => {
           </Badge>
         </div>
 
-        {/* Platform Badge */}
-        <div className="absolute top-2 left-2">
-          <Badge className="bg-black/60 text-white text-[10px] px-1.5 py-0.5">
-            <PlatformIcon className={cn("h-3 w-3 mr-0.5", platformColor)} />
-            {video.platformId}
-          </Badge>
-        </div>
-
-        {/* Risk Score */}
+        {/* Risk Score & AI Badges */}
         {video.riskScore !== undefined && (
           <div className="absolute top-2 right-2 flex flex-col gap-1">
-            <Badge className={cn("text-[10px] px-1.5 py-0.5", getRiskColor(video.riskScore))}>
+            <Badge className={cn("text-[10px] px-1.5 py-0.5", getRiskBadgeColor(video.riskScore))}>
               <Shield className="h-3 w-3 mr-0.5" />
-              {video.riskScore}%
+              Risk: {video.riskScore}%
             </Badge>
             {/* AI Engine Badge */}
             {(video as any).engineUsed && (
@@ -129,10 +149,10 @@ const VideoCard = ({ video }: VideoCardProps) => {
         )}
       </div>
 
-      <CardContent className="p-3">
+      <CardContent className="p-4">
         {/* Title */}
-        <h3 className="font-medium text-sm text-foreground line-clamp-2 mb-2 min-h-[2.5rem]">
-          {video.title}
+        <h3 className="text-white font-medium text-sm line-clamp-2 mb-2 min-h-[2.5rem]" title={video.title}>
+          {video.title || 'Untitled Video'}
         </h3>
 
         {/* Scan Details Tooltip (on hover) */}
@@ -149,21 +169,51 @@ const VideoCard = ({ video }: VideoCardProps) => {
           </div>
         )}
 
-        {/* Stats */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-0.5">
-            <Eye className="h-3 w-3" />
-            {formatNumber(video.views)}
-          </span>
-          <span className="flex items-center gap-0.5">
-            <Heart className="h-3 w-3" />
-            {formatNumber(video.likes)}
-          </span>
-          <span className="flex items-center gap-0.5">
-            <MessageCircle className="h-3 w-3" />
-            {formatNumber(video.comments)}
-          </span>
+        <div className="flex items-center justify-between mt-4">
+          {/* Direct Video Link */}
+          {video.videoUrl ? (
+            <a 
+              href={video.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              <ExternalLink size={14} />
+              Watch Original
+            </a>
+          ) : (
+            <span className="text-xs text-gray-500 italic">No link available</span>
+          )}
+
+          {/* Scan Status / Score */}
+          {video.riskScore !== undefined ? (
+            <span className={cn("px-2 py-1 rounded text-xs font-bold", getRiskBadgeColor(video.riskScore))}>
+              Risk: {video.riskScore}%
+            </span>
+          ) : (
+            <span className="text-gray-400 text-xs italic">
+              Waiting to scan...
+            </span>
+          )}
         </div>
+
+        {/* Stats (optional, shows if available) */}
+        {video.views > 0 && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-3 pt-3 border-t border-gray-700/50">
+            <span className="flex items-center gap-0.5">
+              <Eye className="h-3 w-3" />
+              {formatNumber(video.views)}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <Heart className="h-3 w-3" />
+              {formatNumber(video.likes)}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <MessageCircle className="h-3 w-3" />
+              {formatNumber(video.comments)}
+            </span>
+          </div>
+        )}
 
         {/* Published Date */}
         <p className="text-[10px] text-muted-foreground mt-2">
