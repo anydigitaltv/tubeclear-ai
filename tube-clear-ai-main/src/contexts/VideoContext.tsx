@@ -115,28 +115,6 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
     loadStoredVideos();
   }, [user, isGuest]);
 
-  // Auto-sync when platforms change
-  useEffect(() => {
-    const connectedPlatforms = platforms.filter(p => p.connected);
-    if (connectedPlatforms.length > 0 && videos.length === 0) {
-      refreshVideos();
-    }
-  }, [platforms]);
-
-  // Listen for platform connection events
-  useEffect(() => {
-    const handlePlatformConnected = () => {
-      console.log('🔄 Platform connected event received, triggering video sync...');
-      refreshVideos();
-    };
-
-    window.addEventListener('platform-connected', handlePlatformConnected as EventListener);
-    
-    return () => {
-      window.removeEventListener('platform-connected', handlePlatformConnected as EventListener);
-    };
-  }, [refreshVideos]);
-
   const refreshVideos = useCallback(async () => {
     setIsLoading(true);
     console.log('🚀 Starting video sync...');
@@ -191,6 +169,28 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
     console.log(`✅ Video sync complete! Total videos: ${convertedVideos.length}`);
     setIsLoading(false);
   }, [platforms, user, isGuest]);
+
+  // Auto-sync when platforms change
+  useEffect(() => {
+    const connectedPlatforms = platforms.filter(p => p.connected);
+    if (connectedPlatforms.length > 0 && videos.length === 0) {
+      refreshVideos();
+    }
+  }, [platforms, videos.length, refreshVideos]);
+
+  // Listen for platform connection events
+  useEffect(() => {
+    const handlePlatformConnected = () => {
+      console.log('🔄 Platform connected event received, triggering video sync...');
+      refreshVideos();
+    };
+
+    window.addEventListener('platform-connected', handlePlatformConnected as EventListener);
+    
+    return () => {
+      window.removeEventListener('platform-connected', handlePlatformConnected as EventListener);
+    };
+  }, [refreshVideos]);
 
   const getVideosByPlatform = useCallback((platformId: PlatformId) => {
     return videos.filter(v => v.platformId === platformId);
