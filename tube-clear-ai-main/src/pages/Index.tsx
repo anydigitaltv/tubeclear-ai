@@ -123,6 +123,10 @@ const Index = () => {
       navigate("/dashboard");
       return;
     }
+    if (section === "history") {
+      navigate("/history");
+      return;
+    }
     setActiveSection(section);
     sectionRefs[section as keyof typeof sectionRefs]?.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -147,10 +151,6 @@ const Index = () => {
         }
         console.log(`Rate limit: ${rateLimitCheck.remaining} scans remaining this minute`);
       }
-      
-      // STEP 1: Check if user has their own API key (FREE SCAN)
-      const storedApiKeys = localStorage.getItem("tubeclear_api_keys");
-      const hasUserApiKey = storedApiKeys && JSON.parse(storedApiKeys).length > 0;
       
       // STEP 2: Use selected platform from UI
       const platform: PlatformId = selectedPlatform as PlatformId;

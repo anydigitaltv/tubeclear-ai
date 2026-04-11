@@ -1,0 +1,407 @@
+import { useState, useEffect } from "react";
+import { Trash2, FileText, Shield, AlertTriangle, CheckCircle, XCircle, Play } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { ThumbnailWithFallback } from "@/components/ThumbnailWithFallback";
+
+interface AuditReport {
+  id: string;
+  video_url: string;
+  video_title: string | null;
+  thumbnail_url?: string;
+  platform: string;
+  overall_risk: number;
+  result_json: any;
+  created_at: string;
+  user_id?: string;
+}
+
+const LOCAL_STORAGE_KEY = "tubeclear_guest_audits";
+
+const History = () => {
+  const { user, isGuest } = useAuth();
+  const navigate = useNavigate();
+  const [audits, setAudits] = useState<AuditReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [selectedReport, setSelectedReport] = useState<AuditReport | null>(null);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+
+  // Fetch audits based on auth mode
+  useEffect(() => {
+    fetchAudits();
+  }, [user, isGuest]);
+
+  const fetchAudits = async () => {
+    setLoading(true);
+    try {
+      if (!isGuest && user) {
+        // Login mode: Fetch from Supabase
+        const { data, error } = await supabase
+          .from("audit_history")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (error) throw error;
+        
+        // Transform data to include platform and thumbnail_url from result_json
+        const transformedData = (data || []).map((item: any) => {
+          const resultJson = item.result_json || {};
+          return {
+            ...item,
+            video_title: item.video_title || "Unknown Video",
+            platform: resultJson.platformId || resultJson.platform || "youtube",
+            thumbnail_url: resultJson.thumbnail || resultJson.metadata?.thumbnail || null,
+          };
+        });
+        
+        setAudits(transformedData);
+      } else {
+        // Guest mode: Fetch from local storage
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const guestAudits = stored ? JSON.parse(stored) : [];
+        setAudits(guestAudits);
+      }
+    } catch (error: any) {
+      console.error("Error fetching audits:", error);
+      toast.error("Failed to load scan history");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (auditId: string) => {
+    // Show confirmation
+    const confirmed = window.confirm("Are you sure you want to delete this scan? This action cannot be undone.");
+    
+    if (!confirmed) return;
+
+    setDeleting(auditId);
+    try {
+      if (!isGuest && user) {
+        // Login mode: Delete from Supabase
+        const { error } = await supabase
+          .from("audit_history")
+          .delete()
+          .eq("id", auditId)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+        toast.success("Scan deleted successfully");
+      } else {
+        // Guest mode: Delete from local storage
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const guestAudits = stored ? JSON.parse(stored) : [];
+        const updated = guestAudits.filter((a: any) => a.id !== auditId);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+        toast.success("Scan deleted from history");
+      }
+
+      // Update UI immediately
+      setAudits(prev => prev.filter(a => a.id !== auditId));
+    } catch (error: any) {
+      console.error("Error deleting audit:", error);
+      toast.error("Failed to delete scan");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleViewReport = (audit: AuditReport) => {
+    setSelectedReport(audit);
+    setShowReportDialog(true);
+  };
+
+  const getVerdict = (riskScore: number): { label: string; color: string; bg_color: string; icon: any } => {
+    if (riskScore < 30) {
+      return { 
+        label: "PASS", 
+        color: "text-green-700", 
+        bg_color: "bg-green-500", 
+        icon: CheckCircle 
+      };
+    } else if (riskScore < 70) {
+      return { 
+        label: "FLAGGED", 
+        color: "text-yellow-700", 
+        bg_color: "bg-yellow-500", 
+        icon: AlertTriangle 
+      };
+    } else {
+      return { 
+        label: "FAILED", 
+        color: "text-red-700", 
+        bg_color: "bg-red-500", 
+        icon: XCircle 
+      };
+    }
+  };
+
+  const getPlatformIcon = (platform: string): string => {
+    const icons: Record<string, string> = {
+      youtube: "▶️",
+      tiktok: "🎵",
+      facebook: "👤",
+      instagram: "📷",
+      dailymotion: "🎬",
+    };
+    return icons[platform] || "📹";
+  };
+
+  const getPlatformColor = (platform: string): string => {
+    const colors: Record<string, string> = {
+      youtube: "bg-red-500",
+      tiktok: "bg-pink-500",
+      facebook: "bg-blue-600",
+      instagram: "bg-purple-500",
+      dailymotion: "bg-blue-400",
+    };
+    return colors[platform] || "bg-slate-500";
+  };
+
+  const getPlatformName = (platform: string): string => {
+    return platform.charAt(0).toUpperCase() + platform.slice(1);
+  };
+
+  const handleScanNow = () => {
+    navigate("/");
+  };
+
+  // Loading State
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <div className="animate-pulse space-y-6">
+            <div className="h-10 bg-slate-700/50 rounded-lg w-64 mx-auto"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="h-72 bg-slate-700/30 rounded-xl"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty State
+  if (audits.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
+        <div className="container mx-auto px-4 py-16 max-w-2xl">
+          <Card className="glass-card border-border/20">
+            <CardContent className="py-16 text-center space-y-6">
+              <div className="w-24 h-24 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Shield className="w-12 h-12 text-primary/60" />
+              </div>
+              <div className="space-y-3">
+                <h2 className="text-2xl font-bold text-gradient">No Scans Yet</h2>
+                <p className="text-muted-foreground text-lg">
+                  Start protecting your revenue now!
+                </p>
+                <p className="text-sm text-muted-foreground/70">
+                  Your scan history will appear here once you analyze your first video.
+                </p>
+              </div>
+              <Button
+                onClick={handleScanNow}
+                size="lg"
+                className="gap-2 text-base px-8"
+              >
+                <Play className="w-5 h-5" />
+                Scan Now
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // History List
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header */}
+        <div className="mb-8 text-center space-y-2">
+          <h1 className="text-3xl md:text-4xl font-bold text-gradient">
+            My Scans / Video History
+          </h1>
+          <p className="text-muted-foreground">
+            {audits.length} scan{audits.length !== 1 ? "s" : ""} found
+          </p>
+        </div>
+
+        {/* Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {audits.map((audit) => {
+            const verdict = getVerdict(audit.overall_risk);
+            const VerdictIcon = verdict.icon;
+
+            return (
+              <Card
+                key={audit.id}
+                className="glass-card border-border/20 hover:border-border/40 transition-all duration-300 hover:shadow-lg group"
+              >
+                <CardContent className="p-0">
+                  {/* Thumbnail */}
+                  <div className="relative">
+                    <ThumbnailWithFallback
+                      src={audit.thumbnail_url || ""}
+                      alt={audit.video_title || "Video"}
+                      platform={audit.platform}
+                      className="w-full h-44 object-cover rounded-t-xl"
+                    />
+                    
+                    {/* Platform Badge */}
+                    <div className="absolute top-3 left-3">
+                      <Badge className={`${getPlatformColor(audit.platform)} text-white text-xs gap-1.5 px-2.5 py-1`}>
+                        <span>{getPlatformIcon(audit.platform)}</span>
+                        <span>{getPlatformName(audit.platform)}</span>
+                      </Badge>
+                    </div>
+
+                    {/* Verdict Badge */}
+                    <div className="absolute top-3 right-3">
+                      <Badge className={`${verdict.bg_color} text-white text-xs flex items-center gap-1.5 px-2.5 py-1`}>
+                        <VerdictIcon className="w-3.5 h-3.5" />
+                        {verdict.label}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-5 space-y-3">
+                    <h3 className="font-semibold text-base line-clamp-2 text-foreground leading-tight">
+                      {audit.video_title}
+                    </h3>
+                    
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Risk:</span>
+                        <span className={`${verdict.color} font-bold`}>{audit.overall_risk}%</span>
+                      </div>
+                      <span>{new Date(audit.created_at).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        year: 'numeric' 
+                      })}</span>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex-1 gap-2"
+                        onClick={() => handleViewReport(audit)}
+                      >
+                        <FileText className="w-4 h-4" />
+                        View Report
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(audit.id);
+                        }}
+                        disabled={deleting === audit.id}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* View Report Dialog */}
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-gradient">
+              Scan Report
+            </DialogTitle>
+            <DialogDescription>
+              {selectedReport?.video_title}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedReport && (
+            <div className="space-y-4 mt-4">
+              {/* Summary */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card className="bg-secondary/30">
+                  <CardContent className="p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Platform</p>
+                    <p className="font-semibold text-sm">{getPlatformName(selectedReport.platform)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-secondary/30">
+                  <CardContent className="p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Risk Score</p>
+                    <p className="font-bold text-lg">{selectedReport.overall_risk}%</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-secondary/30">
+                  <CardContent className="p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Verdict</p>
+                    <p className={`font-bold text-sm ${getVerdict(selectedReport.overall_risk).color}`}>
+                      {getVerdict(selectedReport.overall_risk).label}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-secondary/30">
+                  <CardContent className="p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Date</p>
+                    <p className="font-semibold text-xs">
+                      {new Date(selectedReport.created_at).toLocaleDateString()}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Full JSON Report */}
+              <Card className="bg-secondary/20 border-border/20">
+                <CardHeader>
+                  <CardTitle className="text-base">Full Report Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="bg-background/50 p-4 rounded-lg overflow-x-auto text-xs max-h-96 overflow-y-auto">
+                    {JSON.stringify(selectedReport.result_json, null, 2)}
+                  </pre>
+                </CardContent>
+              </Card>
+
+              {/* Video Link */}
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => window.open(selectedReport.video_url, "_blank")}
+              >
+                <Play className="w-4 h-4" />
+                Open Original Video
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default History;

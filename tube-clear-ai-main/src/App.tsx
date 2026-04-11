@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AppProviders } from "@/components/AppProviders";
 import Index from "./pages/Index.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
+import History from "./pages/History.tsx";
 import MarketWatcher from "./pages/MarketWatcher.tsx";
 import AuthCallback from "./pages/AuthCallback.tsx";
 import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
@@ -22,6 +23,7 @@ const App = () => (
         <Route path="/" element={<Index />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/history" element={<History />} />
         <Route path="/market" element={<MarketWatcher />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/admin" element={<Admin />} />

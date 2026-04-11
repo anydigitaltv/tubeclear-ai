@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import ThumbnailWithFallback from "@/components/ThumbnailWithFallback";
+import { ThumbnailWithFallback } from "@/components/ThumbnailWithFallback";
 
 interface AuditReport {
   id: string;
@@ -182,7 +182,8 @@ const MyAuditsSection = ({ refreshTrigger }: MyAuditsSectionProps) => {
                     <div className="relative">
                       <ThumbnailWithFallback
                         src={audit.thumbnail_url || ""}
-                        alt={audit.video_title}
+                        alt={audit.video_title || "Video"}
+                        platform={audit.platform}
                         className="w-full h-40 object-cover rounded-t-lg"
                       />
                       

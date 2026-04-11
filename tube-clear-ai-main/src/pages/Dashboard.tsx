@@ -16,6 +16,10 @@ const Dashboard = () => {
       navigate("/");
       return;
     }
+    if (section === "history") {
+      navigate("/history");
+      return;
+    }
     navigate("/?section=" + section);
   };
 
