@@ -22,6 +22,7 @@ interface AuditConfig {
   label: string;
   engine_type: string; // 'gemini' or 'groq'
   system_prompt: string;
+  platform: string; // 'youtube', 'tiktok', 'facebook', 'instagram', 'dailymotion'
   is_active: boolean;
   created_at: string;
 }
@@ -35,6 +36,7 @@ const AuditConfigsAdmin = () => {
     label: "",
     engine_type: "gemini",
     system_prompt: "",
+    platform: "youtube",
     is_active: true,
   });
 
@@ -72,13 +74,14 @@ const AuditConfigsAdmin = () => {
         label: formData.label,
         engine_type: formData.engine_type,
         system_prompt: formData.system_prompt,
+        platform: formData.platform,
         is_active: formData.is_active,
       });
 
       if (error) throw error;
 
       toast.success("Audit config added successfully");
-      setFormData({ label: "", engine_type: "gemini", system_prompt: "", is_active: true });
+      setFormData({ label: "", engine_type: "gemini", system_prompt: "", platform: "youtube", is_active: true });
       setShowAddForm(false);
       fetchConfigs();
     } catch (error: any) {
@@ -101,6 +104,7 @@ const AuditConfigsAdmin = () => {
           label: formData.label,
           engine_type: formData.engine_type,
           system_prompt: formData.system_prompt,
+          platform: formData.platform,
           is_active: formData.is_active,
         })
         .eq("id", id);
@@ -109,7 +113,7 @@ const AuditConfigsAdmin = () => {
 
       toast.success("Audit config updated successfully");
       setEditingId(null);
-      setFormData({ label: "", engine_type: "gemini", system_prompt: "", is_active: true });
+      setFormData({ label: "", engine_type: "gemini", system_prompt: "", platform: "youtube", is_active: true });
       fetchConfigs();
     } catch (error: any) {
       console.error("Error updating config:", error);
@@ -140,13 +144,14 @@ const AuditConfigsAdmin = () => {
       label: config.label,
       engine_type: config.engine_type,
       system_prompt: config.system_prompt,
+      platform: config.platform,
       is_active: config.is_active,
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ label: "", engine_type: "gemini", system_prompt: "", is_active: true });
+    setFormData({ label: "", engine_type: "gemini", system_prompt: "", platform: "youtube", is_active: true });
   };
 
   if (loading) {
@@ -204,6 +209,21 @@ const AuditConfigsAdmin = () => {
                   </Badge>
                 </div>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="platform">Platform</Label>
+              <select
+                id="platform"
+                value={formData.platform}
+                onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                className="w-full rounded-md border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm"
+              >
+                <option value="youtube">YouTube</option>
+                <option value="tiktok">TikTok</option>
+                <option value="facebook">Facebook</option>
+                <option value="instagram">Instagram</option>
+                <option value="dailymotion">Dailymotion</option>
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="engine_type">AI Engine</Label>

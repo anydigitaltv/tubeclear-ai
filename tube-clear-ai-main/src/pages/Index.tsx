@@ -15,6 +15,7 @@ import ScrollReveal from "@/components/ScrollReveal";
 import EngineGrid from "@/components/EngineGrid";
 import ViolationAlertPanel from "@/components/ViolationAlertPanel";
 import PreScanConsentModal from "@/components/PreScanConsentModal";
+import PlatformSelector from "@/components/PlatformSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
@@ -28,38 +29,6 @@ import type { PlatformId } from "@/contexts/PlatformContext";
 // Store pending scan input for modal callbacks
 let pendingScanInput: any = null;
 
-// Calculate scan cost based on duration (from VideoScanContext)
-const calculateScanCost = (durationSeconds?: number): { cost: number; warning?: string } => {
-  if (!durationSeconds || durationSeconds <= 0) {
-    // Default to minimum cost instead of standard
-    return { cost: 2, warning: 'Unable to detect video duration. Using minimum pricing (2 coins).' };
-  }
-  
-  if (durationSeconds < 60) {
-    return { cost: 2 }; // Shorts
-  } else if (durationSeconds <= 600) {
-    return { cost: 5 }; // Standard (1-10 min)
-  } else if (durationSeconds <= 1800) {
-    return { cost: 10 }; // Long (10-30 min)
-  } else {
-    return { cost: 20 }; // Deep (>30 min)
-  }
-};
-
-const HISTORY_KEY = "tubeclear_scan_history";
-
-const loadHistory = (): ScanHistoryItem[] => {
-  try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-  } catch {
-    return [];
-  }
-};
-
-const saveHistory = (history: ScanHistoryItem[]) => {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
-};
-
 const Index = () => {
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
@@ -72,8 +41,9 @@ const Index = () => {
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>(loadHistory);
-  const [auditConfigs, setAuditConfigs] = useState<Array<{id: string, label: string, engine_type: string, system_prompt: string}>>([]);
+  const [auditConfigs, setAuditConfigs] = useState<Array<{id: string, label: string, engine_type: string, system_prompt: string, platform: string}>>([]);
   const [selectedConfig, setSelectedConfig] = useState<string>("");
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("youtube");
   
   // Pre-scan modal state
   const [showPreScanModal, setShowPreScanModal] = useState(false);
@@ -93,7 +63,7 @@ const Index = () => {
         // @ts-ignore
         const { data, error } = await supabase
           .from("audit_configs")
-          .select("id, label, engine_type, system_prompt")
+          .select("id, label, engine_type, system_prompt, platform")
           .eq("is_active", true)
           .order("created_at", { ascending: true });
 
@@ -137,8 +107,8 @@ const Index = () => {
       const storedApiKeys = localStorage.getItem("tubeclear_api_keys");
       const hasUserApiKey = storedApiKeys && JSON.parse(storedApiKeys).length > 0;
       
-      // STEP 2: Extract platform info from URL
-      const platform: PlatformId = platformId as PlatformId || 'youtube';
+      // STEP 2: Use selected platform from UI
+      const platform: PlatformId = selectedPlatform as PlatformId;
       
       // STEP 3: Fetch metadata with 7-engine failover
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
@@ -316,20 +286,27 @@ const Index = () => {
 
           <main className="flex-1 overflow-y-auto">
             <div ref={sectionRefs.scan}>
+              {/* Platform Selector */}
+              <div className="container mx-auto px-6 pt-6 pb-2">
+                <PlatformSelector selectedPlatform={selectedPlatform} onSelect={setSelectedPlatform} />
+              </div>
+              
               {/* Audit Config Dropdown */}
               {auditConfigs.length > 0 && (
-                <div className="container mx-auto px-6 pt-6 pb-2">
+                <div className="container mx-auto px-6 pt-2 pb-2">
                   <div className="max-w-2xl mx-auto">
                     <Select value={selectedConfig} onValueChange={setSelectedConfig}>
                       <SelectTrigger className="bg-slate-800/50 border-slate-700">
                         <SelectValue placeholder="Select audit type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {auditConfigs.map((config) => (
-                          <SelectItem key={config.id} value={config.id}>
-                            {config.label}
-                          </SelectItem>
-                        ))}
+                        {auditConfigs
+                          .filter(config => !config.platform || config.platform === selectedPlatform)
+                          .map((config) => (
+                            <SelectItem key={config.id} value={config.id}>
+                              {config.label}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
