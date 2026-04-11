@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: "What is BYOK and is it safe?",
-    a: "BYOK (Bring Your Own Key) means you use your own API key from providers like Gemini, OpenAI, or DeepSeek. Your key is stored locally in your browser — it never leaves your device or touches our servers.",
+    a: "BYOK (Bring Your Own Key) means you use your own API key from providers like Gemini or Groq. Your keys are stored locally in your browser — they never leave your device or touch our servers. You can add unlimited keys for uninterrupted scanning.",
   },
   {
     q: "Do I need an account to use TubeClear?",

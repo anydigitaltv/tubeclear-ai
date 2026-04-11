@@ -2,12 +2,13 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-// AI Engine Priority: 1. Gemini 1.5 Flash (Deep Scan), 2. Groq Llama 3.1 (Quick Check)
+// AI Engine Priority: 1. Gemini (Visual/Video scan), 2. Groq (Policy Auditing)
 export type EngineId = "gemini" | "groq";
 
 export interface AIEngine {
   id: EngineId;
   name: string;
+  role: "visual" | "policy";
   priority: number;
   keyPlaceholder: string;
   endpoint?: string;
@@ -15,36 +16,69 @@ export interface AIEngine {
 
 export type KeyStatus = "invalid" | "no_quota" | "ready" | "unknown";
 
-export interface APIKeyData {
-  engineId: EngineId;
+export interface APIKeyEntry {
+  id: string; // Unique ID for each key
   key: string;
   status: KeyStatus;
   lastChecked: string;
+  lastUsed?: string;
+  usageCount: number;
+  isExhausted: boolean; // True when hit rate limit
+}
+
+export interface EnginePool {
+  engineId: EngineId;
+  keys: APIKeyEntry[];
+  activeKeyIndex: number; // Current working key
 }
 
 interface AIEngineContextType {
   engines: AIEngine[];
-  apiKeys: Record<EngineId, APIKeyData>;
+  pools: Record<EngineId, EnginePool>;
   currentEngine: EngineId | null;
-  setAPIKey: (engineId: EngineId, key: string) => Promise<void>;
-  removeAPIKey: (engineId: EngineId) => Promise<void>;
-  validateKey: (engineId: EngineId) => Promise<KeyStatus>;
-  getNextEngine: () => EngineId | null;
-  switchToNextEngine: () => void;
-  isEngineReady: (engineId: EngineId) => boolean;
-  allEnginesFailed: () => boolean;
+  activeKey: APIKeyEntry | null;
+  
+  // Multi-key management
+  addKey: (engineId: EngineId, key: string) => Promise<void>;
+  removeKey: (engineId: EngineId, keyId: string) => Promise<void>;
+  validateKey: (engineId: EngineId, keyId?: string) => Promise<KeyStatus>;
+  
+  // Pool rotation
+  getNextAvailableKey: (engineId: EngineId) => APIKeyEntry | null;
+  markKeyExhausted: (engineId: EngineId, keyId: string) => void;
+  rotateToNextKey: (engineId: EngineId) => boolean;
+  
+  // Universal access
+  getActiveKeyForScan: (scanType: "visual" | "policy") => APIKeyEntry | null;
+  isAnyKeyAvailable: (engineId: EngineId) => boolean;
+  allPoolsExhausted: () => boolean;
+  checkPoolHealth: () => { gemini: boolean; groq: boolean; totalKeys: number; activeKeys: number };
 }
 
 const ENGINES: AIEngine[] = [
-  { id: "gemini", name: "Gemini 1.5 Flash", priority: 1, keyPlaceholder: "AIza...", endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash" },
-  { id: "groq", name: "Groq Llama 3.1", priority: 2, keyPlaceholder: "gsk_...", endpoint: "https://api.groq.com/openai/v1/chat/completions" },
+  { 
+    id: "gemini", 
+    name: "Gemini 1.5 Flash", 
+    role: "visual",
+    priority: 1, 
+    keyPlaceholder: "AIza...", 
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash" 
+  },
+  { 
+    id: "groq", 
+    name: "Groq Llama 3.1", 
+    role: "policy",
+    priority: 2, 
+    keyPlaceholder: "gsk_...", 
+    endpoint: "https://api.groq.com/openai/v1/chat/completions" 
+  },
 ];
 
-const API_KEYS_STORAGE_KEY = "tubeclear_api_keys";
+const API_KEYS_STORAGE_KEY = "tubeclear_api_keys_v2";
 const ADMIN_PHONE = "+923154414981";
 const WEBHOOK_ALERT_SENT_KEY = "tubeclear_admin_alert_sent";
 
-// Simple encryption for localStorage (not cryptographically secure, just obfuscation)
+// Simple encryption for localStorage
 const encryptKey = (key: string): string => {
   return btoa(encodeURIComponent(key));
 };
@@ -57,9 +91,13 @@ const decryptKey = (encrypted: string): string => {
   }
 };
 
+// Generate unique key ID
+const generateKeyId = (): string => {
+  return `key_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
 // Send webhook alert to admin when all keys fail
 const sendAdminAlert = async (failedEngines: string[]): Promise<boolean> => {
-  // Check if alert already sent recently (within 1 hour)
   const lastAlert = localStorage.getItem(WEBHOOK_ALERT_SENT_KEY);
   if (lastAlert) {
     const lastAlertTime = new Date(lastAlert).getTime();
@@ -70,21 +108,11 @@ const sendAdminAlert = async (failedEngines: string[]): Promise<boolean> => {
     }
   }
 
-  const message = `🚨 TubeClear Alert: All AI engines failed! Failed engines: ${failedEngines.join(", ")}. Timestamp: ${new Date().toISOString()}`;
+  const message = `🚨 TubeClear Alert: All API keys exhausted! Failed engines: ${failedEngines.join(", ")}. Timestamp: ${new Date().toISOString()}`;
   
   try {
-    // Using a webhook service (you can replace with actual SMS gateway)
-    // For now, we'll use a simple webhook format
-    const webhookUrl = `https://api.callmebot.com/sms.php?phone=${encodeURIComponent(ADMIN_PHONE)}&text=${encodeURIComponent(message)}`;
-    
-    // In production, you would use a proper webhook endpoint
-    // For now, we just log and mark as sent
     console.log("Admin Alert Triggered:", message);
-    console.log("Webhook URL (for actual SMS gateway):", webhookUrl);
-    
-    // Mark alert as sent
     localStorage.setItem(WEBHOOK_ALERT_SENT_KEY, new Date().toISOString());
-    
     return true;
   } catch (error) {
     console.error("Error sending admin alert:", error);
@@ -96,86 +124,89 @@ const AIEngineContext = createContext<AIEngineContextType | undefined>(undefined
 
 export const AIEngineProvider = ({ children }: { children: ReactNode }) => {
   const { user, isGuest } = useAuth();
-  const [apiKeys, setApiKeys] = useState<Record<EngineId, APIKeyData>>({} as Record<EngineId, APIKeyData>);
+  const [pools, setPools] = useState<Record<EngineId, EnginePool>>({} as Record<EngineId, EnginePool>);
   const [currentEngine, setCurrentEngine] = useState<EngineId | null>(null);
+  const [activeKey, setActiveKey] = useState<APIKeyEntry | null>(null);
 
-  // Load API keys from localStorage and Supabase
+  // Initialize pools
   useEffect(() => {
-    const loadKeys = async () => {
-      // Load from localStorage first
+    const initialPools: Record<EngineId, EnginePool> = {} as Record<EngineId, EnginePool>;
+    for (const engine of ENGINES) {
+      initialPools[engine.id] = {
+        engineId: engine.id,
+        keys: [],
+        activeKeyIndex: 0
+      };
+    }
+    setPools(initialPools);
+  }, []);
+
+  // Load API key pools from localStorage
+  useEffect(() => {
+    const loadPools = async () => {
       const stored = localStorage.getItem(API_KEYS_STORAGE_KEY);
       if (stored) {
         try {
-          const parsed = JSON.parse(stored) as Record<EngineId, { key: string; status: KeyStatus; lastChecked: string }>;
-          const keys: Record<EngineId, APIKeyData> = {} as Record<EngineId, APIKeyData>;
+          const parsed = JSON.parse(stored) as Record<EngineId, { keys: Array<{id: string; key: string; status: KeyStatus; lastChecked: string; usageCount: number; isExhausted: boolean}>; activeKeyIndex: number }>;
+          const loadedPools: Record<EngineId, EnginePool> = {} as Record<EngineId, EnginePool>;
           
-          for (const [id, data] of Object.entries(parsed)) {
-            keys[id as EngineId] = {
-              engineId: id as EngineId,
-              key: decryptKey(data.key),
-              status: data.status,
-              lastChecked: data.lastChecked,
-            };
+          for (const engine of ENGINES) {
+            const engineData = parsed[engine.id];
+            if (engineData && engineData.keys.length > 0) {
+              loadedPools[engine.id] = {
+                engineId: engine.id,
+                keys: engineData.keys.map(k => ({
+                  ...k,
+                  key: decryptKey(k.key),
+                  lastUsed: k.lastUsed,
+                })),
+                activeKeyIndex: engineData.activeKeyIndex || 0
+              };
+            } else {
+              loadedPools[engine.id] = {
+                engineId: engine.id,
+                keys: [],
+                activeKeyIndex: 0
+              };
+            }
           }
-          setApiKeys(keys);
           
-          // Set current engine to first valid one
-          const sortedEngines = [...ENGINES].sort((a, b) => a.priority - b.priority);
-          for (const engine of sortedEngines) {
-            if (keys[engine.id]?.key && keys[engine.id]?.status === "ready") {
+          setPools(loadedPools);
+          
+          // Set current engine to first available
+          for (const engine of ENGINES) {
+            const pool = loadedPools[engine.id];
+            if (pool.keys.some(k => !k.isExhausted && k.status === "ready")) {
               setCurrentEngine(engine.id);
               break;
             }
           }
         } catch (error) {
-          console.error("Error loading API keys:", error);
-        }
-      }
-
-      // If logged in, sync from Supabase
-      if (!isGuest && user) {
-        try {
-          const { data, error } = await supabase
-            .from("api_keys")
-            .select("*")
-            .eq("user_id", user.id);
-
-          if (!error && data) {
-            for (const row of data) {
-              const engineId = row.engine_id as EngineId;
-              if (!apiKeys[engineId]?.key) {
-                setApiKeys(prev => ({
-                  ...prev,
-                  [engineId]: {
-                    engineId,
-                    key: decryptKey(row.encrypted_key),
-                    status: row.status as KeyStatus,
-                    lastChecked: row.last_checked || new Date().toISOString(),
-                  },
-                }));
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error syncing from Supabase:", error);
+          console.error("Error loading API key pools:", error);
         }
       }
     };
 
-    loadKeys();
-  }, [user, isGuest]);
+    loadPools();
+  }, []);
 
-  // Save to localStorage whenever keys change
+  // Save pools to localStorage whenever they change
   useEffect(() => {
-    const saveToStorage = () => {
-      const toStore: Record<string, { key: string; status: KeyStatus; lastChecked: string }> = {};
+    const savePools = () => {
+      const toStore: any = {};
       
-      for (const [id, data] of Object.entries(apiKeys)) {
-        if (data.key) {
+      for (const [id, pool] of Object.entries(pools)) {
+        if (pool.keys.length > 0) {
           toStore[id] = {
-            key: encryptKey(data.key),
-            status: data.status,
-            lastChecked: data.lastChecked,
+            keys: pool.keys.map(k => ({
+              id: k.id,
+              key: encryptKey(k.key),
+              status: k.status,
+              lastChecked: k.lastChecked,
+              usageCount: k.usageCount,
+              isExhausted: k.isExhausted
+            })),
+            activeKeyIndex: pool.activeKeyIndex
           };
         }
       }
@@ -183,190 +214,195 @@ export const AIEngineProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(toStore));
     };
 
-    saveToStorage();
-  }, [apiKeys]);
+    if (Object.keys(pools).length > 0) {
+      savePools();
+    }
+  }, [pools]);
 
-  const setAPIKey = useCallback(async (engineId: EngineId, key: string): Promise<void> => {
-    const newKeyData: APIKeyData = {
-      engineId,
+  // Add new key to pool
+  const addKey = useCallback(async (engineId: EngineId, key: string): Promise<void> => {
+    const newKeyEntry: APIKeyEntry = {
+      id: generateKeyId(),
       key,
       status: "unknown",
       lastChecked: new Date().toISOString(),
+      usageCount: 0,
+      isExhausted: false
     };
 
-    setApiKeys(prev => ({
-      ...prev,
-      [engineId]: newKeyData,
-    }));
-
-    // Sync to Supabase if logged in
-    if (!isGuest && user) {
-      try {
-        await supabase
-          .from("api_keys")
-          .upsert({
-            user_id: user.id,
-            engine_id: engineId,
-            encrypted_key: encryptKey(key),
-            status: "unknown",
-            last_checked: new Date().toISOString(),
-          }, {
-            onConflict: "user_id,engine_id",
-          });
-      } catch (error) {
-        console.error("Error saving to Supabase:", error);
-      }
-    }
-  }, [user, isGuest]);
-
-  const removeAPIKey = useCallback(async (engineId: EngineId): Promise<void> => {
-    setApiKeys(prev => {
-      const updated = { ...prev };
-      delete updated[engineId];
-      return updated;
-    });
-
-    // Remove from localStorage
-    const stored = localStorage.getItem(API_KEYS_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      delete parsed[engineId];
-      localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(parsed));
-    }
-
-    // Remove from Supabase if logged in
-    if (!isGuest && user) {
-      try {
-        await supabase
-          .from("api_keys")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("engine_id", engineId);
-      } catch (error) {
-        console.error("Error removing from Supabase:", error);
-      }
-    }
-  }, [user, isGuest]);
-
-  const validateKey = useCallback(async (engineId: EngineId): Promise<KeyStatus> => {
-    const keyData = apiKeys[engineId];
-    if (!keyData?.key) return "invalid";
-
-    // Simulate validation (in real app, would make actual API call)
-    // For now, just check if key looks valid format
-    const engine = ENGINES.find(e => e.id === engineId);
-    if (!engine) return "invalid";
-
-    const key = keyData.key.trim();
-    
-    // Basic format validation for 2 engines only
-    let status: KeyStatus = "ready";
-    
-    switch (engineId) {
-      case "gemini":
-        status = key.startsWith("AIza") ? "ready" : "invalid";
-        break;
-      case "groq":
-        status = key.startsWith("gsk_") ? "ready" : "invalid";
-        break;
-      default:
-        status = "invalid";
-    }
-
-    // Update status
-    setApiKeys(prev => ({
+    setPools(prev => ({
       ...prev,
       [engineId]: {
         ...prev[engineId],
-        status,
-        lastChecked: new Date().toISOString(),
-      },
+        keys: [...prev[engineId].keys, newKeyEntry]
+      }
     }));
+  }, []);
 
-    // Sync status to Supabase
-    if (!isGuest && user) {
-      try {
-        await supabase
-          .from("api_keys")
-          .update({
-            status,
-            last_checked: new Date().toISOString(),
-          })
-          .eq("user_id", user.id)
-          .eq("engine_id", engineId);
-      } catch (error) {
-        console.error("Error updating status in Supabase:", error);
+  // Remove key from pool
+  const removeKey = useCallback(async (engineId: EngineId, keyId: string): Promise<void> => {
+    setPools(prev => ({
+      ...prev,
+      [engineId]: {
+        ...prev[engineId],
+        keys: prev[engineId].keys.filter(k => k.id !== keyId)
       }
-    }
+    }));
+  }, []);
 
-    return status;
-  }, [apiKeys, user, isGuest]);
+  // Validate a specific key or all keys
+  const validateKey = useCallback(async (engineId: EngineId, keyId?: string): Promise<KeyStatus> => {
+    const pool = pools[engineId];
+    if (!pool) return "invalid";
 
-  const getNextEngine = useCallback((): EngineId | null => {
-    const sortedEngines = [...ENGINES].sort((a, b) => a.priority - b.priority);
+    const keysToValidate = keyId ? pool.keys.filter(k => k.id === keyId) : pool.keys;
     
-    const currentIndex = currentEngine 
-      ? sortedEngines.findIndex(e => e.id === currentEngine) 
-      : -1;
-    
-    // Start from next engine after current
-    for (let i = currentIndex + 1; i < sortedEngines.length; i++) {
-      const engine = sortedEngines[i];
-      if (apiKeys[engine.id]?.status === "ready") {
-        return engine.id;
-      }
-    }
-    
-    // Wrap around to beginning
-    for (let i = 0; i <= currentIndex; i++) {
-      const engine = sortedEngines[i];
-      if (apiKeys[engine.id]?.status === "ready") {
-        return engine.id;
-      }
-    }
-    
-    return null;
-  }, [currentEngine, apiKeys]);
-
-  const switchToNextEngine = useCallback(() => {
-    const next = getNextEngine();
-    if (next) {
-      setCurrentEngine(next);
-    } else {
-      // All engines failed - send admin alert
-      const failedEngines = ENGINES
-        .filter(e => apiKeys[e.id]?.key && apiKeys[e.id]?.status !== "ready")
-        .map(e => e.name);
+    for (const keyData of keysToValidate) {
+      const key = keyData.key.trim();
+      let status: KeyStatus = "ready";
       
-      if (failedEngines.length > 0) {
-        sendAdminAlert(failedEngines);
+      // Basic format validation
+      switch (engineId) {
+        case "gemini":
+          status = key.startsWith("AIza") ? "ready" : "invalid";
+          break;
+        case "groq":
+          status = key.startsWith("gsk_") ? "ready" : "invalid";
+          break;
+        default:
+          status = "invalid";
+      }
+
+      // Update key status
+      setPools(prev => ({
+        ...prev,
+        [engineId]: {
+          ...prev[engineId],
+          keys: prev[engineId].keys.map(k => 
+            k.id === keyData.id 
+              ? { ...k, status, lastChecked: new Date().toISOString() }
+              : k
+          )
+        }
+      }));
+    }
+
+    return keysToValidate[0]?.status || "invalid";
+  }, [pools]);
+
+  // Get next available (non-exhausted) key
+  const getNextAvailableKey = useCallback((engineId: EngineId): APIKeyEntry | null => {
+    const pool = pools[engineId];
+    if (!pool || pool.keys.length === 0) return null;
+
+    // Start from active key index and search
+    for (let i = 0; i < pool.keys.length; i++) {
+      const index = (pool.activeKeyIndex + i) % pool.keys.length;
+      const key = pool.keys[index];
+      
+      if (!key.isExhausted && key.status === "ready") {
+        return key;
       }
     }
-  }, [getNextEngine, apiKeys]);
 
-  const isEngineReady = useCallback((engineId: EngineId): boolean => {
-    return apiKeys[engineId]?.status === "ready" && !!apiKeys[engineId]?.key;
-  }, [apiKeys]);
+    return null;
+  }, [pools]);
 
-  const allEnginesFailed = useCallback((): boolean => {
-    const keysWithStatus = Object.values(apiKeys).filter(k => k.key);
-    if (keysWithStatus.length === 0) return false;
-    return keysWithStatus.every(k => k.status !== "ready");
-  }, [apiKeys]);
+  // Mark key as exhausted (rate limited)
+  const markKeyExhausted = useCallback((engineId: EngineId, keyId: string) => {
+    setPools(prev => ({
+      ...prev,
+      [engineId]: {
+        ...prev[engineId],
+        keys: prev[engineId].keys.map(k =>
+          k.id === keyId ? { ...k, isExhausted: true } : k
+        )
+      }
+    }));
+  }, []);
+
+  // Rotate to next available key
+  const rotateToNextKey = useCallback((engineId: EngineId): boolean => {
+    const pool = pools[engineId];
+    if (!pool || pool.keys.length === 0) return false;
+
+    // Find next non-exhausted key
+    for (let i = 0; i < pool.keys.length; i++) {
+      const nextIndex = (pool.activeKeyIndex + 1 + i) % pool.keys.length;
+      const nextKey = pool.keys[nextIndex];
+
+      if (!nextKey.isExhausted && nextKey.status === "ready") {
+        setPools(prev => ({
+          ...prev,
+          [engineId]: {
+            ...prev[engineId],
+            activeKeyIndex: nextIndex
+          }
+        }));
+        return true;
+      }
+    }
+
+    return false;
+  }, [pools]);
+
+  // Get active key for scan type (hybrid roles)
+  const getActiveKeyForScan = useCallback((scanType: "visual" | "policy"): APIKeyEntry | null => {
+    const targetEngine = scanType === "visual" ? "gemini" : "groq";
+    return getNextAvailableKey(targetEngine);
+  }, [getNextAvailableKey]);
+
+  // Check if any key is available for engine
+  const isAnyKeyAvailable = useCallback((engineId: EngineId): boolean => {
+    const pool = pools[engineId];
+    if (!pool || pool.keys.length === 0) return false;
+    return pool.keys.some(k => !k.isExhausted && k.status === "ready");
+  }, [pools]);
+
+  // Check if all pools are exhausted
+  const allPoolsExhausted = useCallback((): boolean => {
+    for (const pool of Object.values(pools)) {
+      if (pool.keys.some(k => !k.isExhausted && k.status === "ready")) {
+        return false;
+      }
+    }
+    return Object.keys(pools).length > 0;
+  }, [pools]);
+
+  // Check pool health
+  const checkPoolHealth = useCallback(() => {
+    const geminiPool = pools.gemini;
+    const groqPool = pools.groq;
+
+    const totalKeys = (geminiPool?.keys.length || 0) + (groqPool?.keys.length || 0);
+    const activeKeys = (geminiPool?.keys.filter(k => !k.isExhausted && k.status === "ready").length || 0) +
+                       (groqPool?.keys.filter(k => !k.isExhausted && k.status === "ready").length || 0);
+
+    return {
+      gemini: geminiPool?.keys.some(k => !k.isExhausted && k.status === "ready") || false,
+      groq: groqPool?.keys.some(k => !k.isExhausted && k.status === "ready") || false,
+      totalKeys,
+      activeKeys
+    };
+  }, [pools]);
 
   return (
     <AIEngineContext.Provider
       value={{
         engines: ENGINES,
-        apiKeys,
+        pools,
         currentEngine,
-        setAPIKey,
-        removeAPIKey,
+        activeKey,
+        addKey,
+        removeKey,
         validateKey,
-        getNextEngine,
-        switchToNextEngine,
-        isEngineReady,
-        allEnginesFailed,
+        getNextAvailableKey,
+        markKeyExhausted,
+        rotateToNextKey,
+        getActiveKeyForScan,
+        isAnyKeyAvailable,
+        allPoolsExhausted,
+        checkPoolHealth,
       }}
     >
       {children}

@@ -62,11 +62,6 @@ ALWAYS search for the most recent information available. Cite sources with dates
       maxTokens: 4096,
       temperature: 0.3,
       systemPrompt: `Multi-platform policy tracking for ${CURRENT_YEAR}. Emphasize recent updates.`
-    },
-    deepseek: {
-      maxTokens: 4096,
-      temperature: 0.2,
-      systemPrompt: `Cost-effective policy verification. Confirm ${CURRENT_YEAR} compliance standards.`
     }
   };
   

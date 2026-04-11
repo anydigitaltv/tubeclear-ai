@@ -61,9 +61,9 @@ const EngineGrid = () => {
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-[260px] text-xs">
               <p>
-                <strong>Free:</strong> Add keys in API Settings and test them.
+                <strong>Free:</strong> Add unlimited keys in API Settings and test them.
                 <br />
-                <strong>Premium:</strong> Optimized Admin Cluster (Gemini/Groq/Claude/DeepSeek).
+                <strong>Premium:</strong> Optimized Admin Cluster (Gemini/Groq with auto-rotation).
               </p>
             </TooltipContent>
           </Tooltip>

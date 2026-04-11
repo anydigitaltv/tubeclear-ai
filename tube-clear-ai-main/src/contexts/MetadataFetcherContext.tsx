@@ -40,7 +40,6 @@ const ENGINE_FAILOVER_ORDER = [
   "openai",      // Vision capabilities
   "claude",      // Strong reasoning
   "qwen",        // Multilingual support
-  "deepseek",    // Cost-effective fallback
 ];
 
 const MetadataFetcherContext = createContext<MetadataFetcherContextType | undefined>(undefined);
