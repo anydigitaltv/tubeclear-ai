@@ -50,17 +50,67 @@ const MyAuditsSection = ({ refreshTrigger }: MyAuditsSectionProps) => {
           .order("created_at", { ascending: false })
           .limit(20);
 
-        if (error) throw error;
-        setAudits(data || []);
+        if (error) {
+          console.error("Supabase error:", error);
+          throw new Error(`Database error: ${error.message}`);
+        }
+        
+        // Transform with defensive null checks
+        const safeAudits = (data || [])
+          .map((item: any) => {
+            try {
+              return {
+                ...item,
+                video_title: item.video_title || "Unknown Video",
+                platform: item.result_json?.platformId || item.result_json?.platform || item.platform || "youtube",
+                thumbnail_url: item.result_json?.thumbnail || item.result_json?.metadata?.thumbnail || item.thumbnail_url || null,
+                overall_risk: typeof item.overall_risk === 'number' ? item.overall_risk : 0,
+                result_json: item.result_json || {},
+              };
+            } catch (transformError) {
+              console.warn("Failed to transform audit record:", item.id, transformError);
+              return {
+                ...item,
+                video_title: item.video_title || "Unknown Video",
+                platform: "youtube",
+                thumbnail_url: null,
+                overall_risk: 0,
+                result_json: {},
+              };
+            }
+          })
+          .filter(item => item !== null);
+        
+        setAudits(safeAudits);
       } else {
         // Guest mode: Fetch from local storage
-        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-        const guestAudits = stored ? JSON.parse(stored) : [];
-        setAudits(guestAudits);
+        try {
+          const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (stored) {
+            const guestAudits = JSON.parse(stored);
+            const validatedAudits = Array.isArray(guestAudits)
+              ? guestAudits.map((audit: any) => ({
+                  ...audit,
+                  video_title: audit.video_title || "Unknown Video",
+                  platform: audit.platform || "youtube",
+                  overall_risk: typeof audit.overall_risk === 'number' ? audit.overall_risk : 0,
+                  result_json: audit.result_json || {},
+                }))
+              : [];
+            setAudits(validatedAudits);
+          } else {
+            setAudits([]);
+          }
+        } catch (parseError) {
+          console.error("Failed to parse guest audits:", parseError);
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+          setAudits([]);
+        }
       }
     } catch (error: any) {
       console.error("Error fetching audits:", error);
-      toast.error("Failed to load audit history");
+      toast.error(`Failed to load audit history: ${error.message || "Unknown error"}`);
+      setAudits([]);
     } finally {
       setLoading(false);
     }

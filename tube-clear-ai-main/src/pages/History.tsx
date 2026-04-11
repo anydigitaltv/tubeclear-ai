@@ -50,29 +50,98 @@ const History = () => {
           .order("created_at", { ascending: false })
           .limit(50);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase error:", error);
+          throw new Error(`Database error: ${error.message}`);
+        }
         
-        // Transform data to include platform and thumbnail_url from result_json
-        const transformedData = (data || []).map((item: any) => {
-          const resultJson = item.result_json || {};
-          return {
-            ...item,
-            video_title: item.video_title || "Unknown Video",
-            platform: resultJson.platformId || resultJson.platform || "youtube",
-            thumbnail_url: resultJson.thumbnail || resultJson.metadata?.thumbnail || null,
-          };
-        });
+        // Transform data with defensive null checks
+        const transformedData = (data || [])
+          .map((item: any) => {
+            try {
+              // Safely parse result_json
+              const resultJson = item.result_json || {};
+              
+              // Extract platform with fallback
+              const platform = resultJson.platformId || 
+                              resultJson.platform || 
+                              item.platform || 
+                              "youtube";
+              
+              // Extract thumbnail with fallback
+              const thumbnail_url = resultJson.thumbnail || 
+                                   resultJson.metadata?.thumbnail || 
+                                   item.thumbnail_url || 
+                                   null;
+              
+              // Extract video_title with fallback
+              const video_title = item.video_title || 
+                                 resultJson.title || 
+                                 resultJson.videoTitle || 
+                                 "Unknown Video";
+              
+              // Ensure overall_risk is a valid number
+              const overall_risk = typeof item.overall_risk === 'number' 
+                                  ? item.overall_risk 
+                                  : 0;
+              
+              return {
+                ...item,
+                video_title,
+                platform,
+                thumbnail_url,
+                overall_risk,
+                // Ensure result_json exists
+                result_json: resultJson,
+              };
+            } catch (transformError) {
+              console.warn("Failed to transform audit record:", item.id, transformError);
+              // Return safe default instead of crashing
+              return {
+                ...item,
+                video_title: item.video_title || "Unknown Video",
+                platform: "youtube",
+                thumbnail_url: null,
+                overall_risk: item.overall_risk || 0,
+                result_json: {},
+              };
+            }
+          })
+          .filter(item => item !== null); // Remove any null entries
         
         setAudits(transformedData);
       } else {
         // Guest mode: Fetch from local storage
-        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-        const guestAudits = stored ? JSON.parse(stored) : [];
-        setAudits(guestAudits);
+        try {
+          const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (stored) {
+            const guestAudits = JSON.parse(stored);
+            // Validate each audit entry
+            const validatedAudits = Array.isArray(guestAudits) 
+              ? guestAudits.map((audit: any) => ({
+                  ...audit,
+                  video_title: audit.video_title || "Unknown Video",
+                  platform: audit.platform || "youtube",
+                  overall_risk: typeof audit.overall_risk === 'number' ? audit.overall_risk : 0,
+                  result_json: audit.result_json || {},
+                }))
+              : [];
+            setAudits(validatedAudits);
+          } else {
+            setAudits([]);
+          }
+        } catch (parseError) {
+          console.error("Failed to parse guest audits:", parseError);
+          // Corrupted localStorage - clear it
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+          setAudits([]);
+          toast.info("Cleared corrupted history data");
+        }
       }
     } catch (error: any) {
       console.error("Error fetching audits:", error);
-      toast.error("Failed to load scan history");
+      toast.error(`Failed to load scan history: ${error.message || "Unknown error"}`);
+      setAudits([]); // Reset to empty on error
     } finally {
       setLoading(false);
     }
