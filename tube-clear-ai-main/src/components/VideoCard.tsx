@@ -1,4 +1,5 @@
-import { Eye, Heart, MessageCircle, Clock, Shield, Youtube, Music2, Instagram, Facebook, PlayCircle } from "lucide-react";
+import { useState } from "react";
+import { Eye, Heart, MessageCircle, Clock, Shield, Youtube, Music2, Instagram, Facebook, PlayCircle, ImageOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Video } from "@/contexts/VideoContext";
@@ -46,6 +47,7 @@ const formatDate = (dateString: string): string => {
 const VideoCard = ({ video }: VideoCardProps) => {
   const PlatformIcon = platformIcons[video.platformId];
   const platformColor = platformColors[video.platformId];
+  const [imageError, setImageError] = useState(false);
 
   const getRiskColor = (score?: number) => {
     if (!score) return "text-muted-foreground";
@@ -54,16 +56,36 @@ const VideoCard = ({ video }: VideoCardProps) => {
     return "text-red-500";
   };
 
+  // Platform-specific gradient backgrounds for fallback
+  const platformGradients: Record<PlatformId, string> = {
+    youtube: "from-red-900/40 to-red-600/20",
+    tiktok: "from-pink-900/40 to-cyan-600/20",
+    instagram: "from-purple-900/40 to-pink-600/20",
+    facebook: "from-blue-900/40 to-blue-600/20",
+    dailymotion: "from-cyan-900/40 to-blue-600/20",
+  };
+
   return (
     <Card className="glass-card overflow-hidden hover:border-primary/30 transition-all duration-300 group">
       {/* Thumbnail */}
-      <div className="relative aspect-video bg-secondary/50 overflow-hidden">
-        <img
-          src={video.thumbnail}
-          alt={video.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-        />
+      <div className={cn(
+        "relative aspect-video overflow-hidden bg-gradient-to-br",
+        platformGradients[video.platformId]
+      )}>
+        {!imageError && video.thumbnail ? (
+          <img
+            src={video.thumbnail}
+            alt={video.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/50">
+            <ImageOff className="h-8 w-8 mb-2" />
+            <PlatformIcon className={cn("h-12 w-12", platformColor)} />
+          </div>
+        )}
         
         {/* Duration Badge */}
         <div className="absolute bottom-2 right-2">

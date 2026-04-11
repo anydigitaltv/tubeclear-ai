@@ -110,7 +110,8 @@ const extractChannelName = (url: string): string => {
 const generateThumbnail = (platformId: PlatformId, videoId: string, index: number): string => {
   switch (platformId) {
     case 'youtube':
-      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      // Use i.ytimg.com which is the correct YouTube thumbnail domain
+      return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
     case 'tiktok':
       return `https://picsum.photos/seed/tiktok${videoId}/320/180`;
     case 'instagram':

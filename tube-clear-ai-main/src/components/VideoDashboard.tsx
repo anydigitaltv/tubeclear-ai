@@ -203,23 +203,39 @@ const VideoDashboard = () => {
 
       {/* Video Grid */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
-        </div>
-      ) : getConnectedCount() === 0 ? (
-        <div className="text-center py-12">
-          <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Platforms Connected</h3>
+        <div className="text-center py-16">
+          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">Syncing Your Videos...</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Connect a platform to view your videos.
+            Fetching latest videos from your connected channels and running policy scans
           </p>
         </div>
-      ) : filteredVideos.length === 0 ? (
-        <div className="text-center py-12">
-          <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Videos Found</h3>
+      ) : getConnectedCount() === 0 ? (
+        <div className="text-center py-16">
+          <Shield className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Platforms Connected</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {searchQuery ? "Try a different search term." : "No videos match your filters."}
+            Connect a YouTube, TikTok, or other platform to automatically fetch and scan your videos.
+          </p>
+        </div>
+      ) : videos.length === 0 && !isLoading ? (
+        <div className="text-center py-16">
+          <Search className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Videos Found</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+            We couldn't detect any videos from your connected channels.
+          </p>
+          <Button onClick={handleRefresh} variant="outline" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Try Syncing Again
+          </Button>
+        </div>
+      ) : filteredVideos.length === 0 ? (
+        <div className="text-center py-16">
+          <Search className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Videos Match Filters</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            {searchQuery ? "Try a different search term." : "Adjust your platform or sort filters."}
           </p>
         </div>
       ) : (
