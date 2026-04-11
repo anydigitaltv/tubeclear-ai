@@ -3,6 +3,7 @@ import { usePlatforms, type PlatformId } from "@/contexts/PlatformContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchChannelVideos, type ChannelVideo } from "@/utils/channelVideoFetcher";
 import { autoScanVideo, type ScanResult } from "@/utils/autoScanService";
+import { syncAndScanPlatformVideos, type ScanStatus } from "@/utils/syncAndScanService";
 import { 
   saveVideosToDatabase, 
   loadVideosFromDatabase,
@@ -117,7 +118,7 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshVideos = useCallback(async () => {
     setIsLoading(true);
-    console.log('🚀 Starting video sync...');
+    console.log('🚀 Starting video sync and auto-scan...');
     
     const connectedPlatforms = platforms.filter(p => p.connected);
     const allChannelVideos: Array<ChannelVideo & { riskScore?: number; scanResult?: ScanResult }> = [];
@@ -132,17 +133,37 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
         const channelVideos = await fetchChannelVideos(platform.id, channelUrl);
         console.log(`✅ Fetched ${channelVideos.length} videos from ${platform.name}`);
         
-        // Step 2: Auto-scan each video
-        console.log(`🔍 Scanning ${channelVideos.length} videos...`);
-        for (const vid of channelVideos) {
-          const scanResult = await autoScanVideo(vid);
-          allChannelVideos.push({
-            ...vid,
-            riskScore: scanResult.riskScore,
-            scanResult: scanResult
-          });
-        }
-        console.log(`✅ Scanned all videos from ${platform.name}`);
+        // Step 2: Use the new syncAndScanPlatformVideos service
+        await syncAndScanPlatformVideos(
+          platform.id,
+          channelUrl,
+          channelVideos,
+          user?.id,
+          isGuest,
+          (videoId: string, status: ScanStatus, result?: ScanResult) => {
+            // Status update callback
+            console.log(`📊 Video ${videoId} status: ${status}`, result ? `Risk: ${result.riskScore}%` : '');
+            
+            // Update UI if needed (real-time updates)
+            if (status === 'completed' && result) {
+              setVideos(prev => 
+                prev.map(v => 
+                  v.id === videoId 
+                    ? { ...v, riskScore: result.riskScore, scanResult: result }
+                    : v
+                )
+              );
+            }
+          }
+        );
+        
+        // Collect all videos for state update (they've been updated by syncAndScanPlatformVideos)
+        const videosWithScan = channelVideos.map(vid => ({
+          ...vid,
+        })) as Array<ChannelVideo & { riskScore?: number; scanResult?: ScanResult }>;
+        
+        allChannelVideos.push(...videosWithScan);
+        console.log(`✅ Processed all videos from ${platform.name}`);
         
       } catch (error) {
         console.error(`Error fetching videos from ${platform.name}:`, error);
@@ -152,13 +173,6 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
     // Convert to Video format
     const convertedVideos = allChannelVideos.map(channelVideoToVideo);
     
-    // Save to database/localStorage
-    if (!isGuest && user) {
-      await saveVideosToDatabase(allChannelVideos, user.id);
-    } else {
-      saveVideosToLocalStorage(allChannelVideos);
-    }
-    
     setVideos(convertedVideos);
     const now = new Date();
     setLastSynced(now);
@@ -166,7 +180,7 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
     // Store sync time
     localStorage.setItem(VIDEO_SYNC_KEY, now.toISOString());
     
-    console.log(`✅ Video sync complete! Total videos: ${convertedVideos.length}`);
+    console.log(`✅ Video sync and scan complete! Total videos: ${convertedVideos.length}`);
     setIsLoading(false);
   }, [platforms, user, isGuest]);
 

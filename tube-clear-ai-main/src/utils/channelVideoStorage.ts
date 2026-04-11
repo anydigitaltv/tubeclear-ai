@@ -122,3 +122,61 @@ export const clearStoredVideos = (): void => {
   localStorage.removeItem(LOCAL_STORAGE_KEY);
   console.log("✅ Cleared stored videos");
 };
+
+/**
+ * Update scan result for a specific video in Supabase
+ */
+export const updateVideoScanResult = async (
+  userId: string,
+  videoId: string,
+  platformId: string,
+  scanResult: any
+): Promise<boolean> => {
+  try {
+    const { error } = await (supabase as any)
+      .from("channel_videos")
+      .update({
+        risk_score: scanResult.riskScore,
+        scan_result: scanResult,
+      })
+      .eq("user_id", userId)
+      .eq("video_id", videoId)
+      .eq("platform_id", platformId);
+
+    if (error) {
+      console.error("Error updating video scan result:", error);
+      throw error;
+    }
+
+    console.log(`✅ Updated scan result for video ${videoId}`);
+    return true;
+  } catch (error) {
+    console.error("Failed to update video scan result:", error);
+    return false;
+  }
+};
+
+/**
+ * Update scan result for a specific video in localStorage
+ */
+export const updateVideoScanResultInLocalStorage = (
+  videoId: string,
+  scanResult: any
+): void => {
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!stored) return;
+
+    const videos = JSON.parse(stored);
+    const videoIndex = videos.findIndex((v: any) => v.videoId === videoId);
+
+    if (videoIndex !== -1) {
+      videos[videoIndex].riskScore = scanResult.riskScore;
+      videos[videoIndex].scanResult = scanResult;
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(videos));
+      console.log(`✅ Updated scan result for video ${videoId} in localStorage`);
+    }
+  } catch (error) {
+    console.error("Error updating video scan result in localStorage:", error);
+  }
+};
