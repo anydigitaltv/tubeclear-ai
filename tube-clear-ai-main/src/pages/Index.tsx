@@ -16,6 +16,8 @@ import EngineGrid from "@/components/EngineGrid";
 import ViolationAlertPanel from "@/components/ViolationAlertPanel";
 import PreScanConsentModal from "@/components/PreScanConsentModal";
 import PlatformSelector from "@/components/PlatformSelector";
+import MyAuditsSection from "@/components/MyAuditsSection";
+import { saveAuditReport } from "@/utils/auditStorage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
@@ -58,6 +60,7 @@ const Index = () => {
   const [auditConfigs, setAuditConfigs] = useState<Array<{id: string, label: string, engine_type: string, system_prompt: string, platform: string}>>([]);
   const [selectedConfig, setSelectedConfig] = useState<string>("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("youtube");
+  const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
   
   // Pre-scan modal state
   const [showPreScanModal, setShowPreScanModal] = useState(false);
@@ -226,6 +229,19 @@ const Index = () => {
       };
       
       setAuditReport(report);
+      
+      // Save to audit history (database or local storage)
+      await saveAuditReport({
+        video_url: pendingScanInput.videoUrl,
+        video_title: pendingScanInput.title,
+        thumbnail_url: metadata?.thumbnail || undefined,
+        platform: pendingScanInput.platformId,
+        overall_risk: result.riskScore,
+        result_json: result,
+      }, isGuest, user?.id);
+      
+      // Trigger audit section refresh
+      setAuditRefreshTrigger(prev => prev + 1);
       
       // Add to history
       const newItem: ScanHistoryItem = {
@@ -398,6 +414,11 @@ const Index = () => {
             <div ref={sectionRefs.settings}>
               <ApiSettings />
             </div>
+
+            <div className="neon-line my-4" />
+
+            {/* My Audits Section */}
+            <MyAuditsSection refreshTrigger={auditRefreshTrigger} />
 
             <footer className="container mx-auto px-6 py-12 text-center text-sm text-muted-foreground space-y-2">
               <p className="text-gradient font-semibold text-lg">TubeClear</p>
