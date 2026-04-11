@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { usePolicyWatcher, type LivePolicy } from "./PolicyWatcherContext";
 import { useAIEngines, type EngineId } from "./AIEngineContext";
-import { useVideoScan, type VideoScanInput, type ScanResult } from "./VideoScanContext";
+import { useVideoScan, type VideoScanInput, type ScanResult, getFinalVerdict, type FinalVerdict } from "./VideoScanContext";
 import { optimizeScanWorkflow, MemoryCacheManager, PersistentCache } from "@/utils/memoryCacheSystem";
+import { checkRateLimit, recordScan } from "@/utils/rateLimiter";
 import { 
   getPlatformFrameRequirements, 
   generateFrameAnalysisPrompt,
@@ -159,6 +160,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       return {
         riskScore: patternResult.riskScore,
         riskLevel: patternResult.riskScore < 20 ? "low" : "medium",
+        finalVerdict: getFinalVerdict(patternResult.riskScore, input.platformId),
         issues: patternResult.matchedKeywords.map(k => `Keyword violation: ${k}`),
         suggestions: ["Content appears compliant with current policies"],
         analyzedAt: new Date().toISOString(),
@@ -223,6 +225,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
         const lightweightResult: DeepScanResult = {
           riskScore: patternResult.riskScore,
           riskLevel: "low",
+          finalVerdict: getFinalVerdict(patternResult.riskScore, input.platformId),
           issues: [],
           suggestions: ["Content compliant with live policies"],
           analyzedAt: new Date().toISOString(),

@@ -18,6 +18,7 @@ import PreScanConsentModal from "@/components/PreScanConsentModal";
 import PlatformSelector from "@/components/PlatformSelector";
 import MyAuditsSection from "@/components/MyAuditsSection";
 import { saveAuditReport } from "@/utils/auditStorage";
+import { checkRateLimit, recordScan } from "@/utils/rateLimiter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
@@ -132,6 +133,21 @@ const Index = () => {
     setMetadata(null);
 
     try {
+      // STEP 0: Rate Limit Check (Admin API only)
+      const storedApiKeys = localStorage.getItem("tubeclear_api_keys");
+      const hasUserApiKey = storedApiKeys && JSON.parse(storedApiKeys).length > 0;
+      
+      if (!hasUserApiKey) {
+        // Check rate limit for admin API users
+        const rateLimitCheck = checkRateLimit(user?.id);
+        if (!rateLimitCheck.allowed) {
+          toast.error(`⚠️ ${rateLimitCheck.message}`);
+          setIsScanning(false);
+          return;
+        }
+        console.log(`Rate limit: ${rateLimitCheck.remaining} scans remaining this minute`);
+      }
+      
       // STEP 1: Check if user has their own API key (FREE SCAN)
       const storedApiKeys = localStorage.getItem("tubeclear_api_keys");
       const hasUserApiKey = storedApiKeys && JSON.parse(storedApiKeys).length > 0;
@@ -239,6 +255,12 @@ const Index = () => {
         overall_risk: result.riskScore,
         result_json: result,
       }, isGuest, user?.id);
+      
+      // Record scan for rate limiting (if using admin API)
+      if (!hasUserApiKey) {
+        recordScan(user?.id);
+        console.log('Scan recorded for rate limiting');
+      }
       
       // Trigger audit section refresh
       setAuditRefreshTrigger(prev => prev + 1);
