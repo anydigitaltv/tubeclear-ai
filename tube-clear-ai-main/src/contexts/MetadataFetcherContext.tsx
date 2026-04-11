@@ -380,7 +380,7 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
       const apiKey = apiKeyData.key;
       
       // AI prompt for video analysis based on URL
-      const prompt = `Analyze this ${platformId} video link and provide a comprehensive safety report based on 2026 content policies.\n\nVideo URL: ${videoUrl}\n\nProvide:\n1. Likely video title\n2. Brief description\n3. Relevant tags/keywords\n4. Content category\n5. Any potential policy concerns\n\nFormat as JSON with fields: title, description, tags`;
+      const prompt = `Analyze this ${platformId} video link and provide a comprehensive safety report based on latest content policies.\n\nVideo URL: ${videoUrl}\n\nProvide:\n1. Likely video title\n2. Brief description\n3. Relevant tags/keywords\n4. Content category\n5. Any potential policy concerns\n\nFormat as JSON with fields: title, description, tags`;
       
       // Call AI engine based on type
       let response;
@@ -433,7 +433,7 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
             return {
               title: `${platformId} Video - AI Analysis`,
               description: aiText.substring(0, 500),
-              tags: [platformId.toLowerCase(), "ai-analyzed", "2026-policy"],
+              tags: [platformId.toLowerCase(), "ai-analyzed", "latest-policy"],
               fetchedFrom: "ai_failover",
               aiEngineUsed: engineId,
             };

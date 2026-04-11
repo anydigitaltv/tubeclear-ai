@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import { MarketWatcherDashboard } from "@/components/MarketWatcherDashboard";
+import { PolicyNewsFeed } from "@/components/PolicyNewsFeed";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { LogIn, User } from "lucide-react";
@@ -53,7 +54,14 @@ const MarketWatcher = () => {
           </header>
 
           {/* Market Watcher Content */}
-          <div className="container mx-auto p-6 max-w-7xl">
+          <div className="container mx-auto p-6 max-w-7xl space-y-8">
+            {/* Policy News Section */}
+            <PolicyNewsFeed />
+            
+            {/* Divider */}
+            <div className="border-t border-border/30"></div>
+            
+            {/* Market Pricing Dashboard */}
             <MarketWatcherDashboard />
           </div>
         </div>

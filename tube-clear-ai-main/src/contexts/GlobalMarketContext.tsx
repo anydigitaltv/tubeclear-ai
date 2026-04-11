@@ -91,11 +91,11 @@ const COUNTRY_CURRENCY: Record<string, string> = {
 };
 
 // Holiday detection (simplified - would use proper holiday API in production)
-const HOLIDAYS_2026: Record<string, string[]> = {
-  PK: ["2026-03-23", "2026-08-14", "2026-12-25"],
-  US: ["2026-01-01", "2026-07-04", "2026-11-26", "2026-12-25"],
-  GB: ["2026-01-01", "2026-12-25", "2026-12-26"],
-  IN: ["2026-01-26", "2026-08-15", "2026-10-02"],
+const HOLIDAYS_latest: Record<string, string[]> = {
+  PK: ["latest-03-23", "latest-08-14", "latest-12-25"],
+  US: ["latest-01-01", "latest-07-04", "latest-11-26", "latest-12-25"],
+  GB: ["latest-01-01", "latest-12-25", "latest-12-26"],
+  IN: ["latest-01-26", "latest-08-15", "latest-10-02"],
 };
 
 const FLASH_SALE_DISCOUNT = 0.20; // 20% off
@@ -168,7 +168,7 @@ export const GlobalMarketProvider = ({ children }: { children: ReactNode }) => {
       
       // Check for holidays
       const today = new Date().toISOString().split('T')[0];
-      const holidays = HOLIDAYS_2026[countryCode] || [];
+      const holidays = HOLIDAYS_latest[countryCode] || [];
       const isHoliday = holidays.includes(today);
       const holidayName = isHoliday ? "Local Holiday" : undefined;
 

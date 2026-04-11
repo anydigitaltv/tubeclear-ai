@@ -20,39 +20,39 @@ export interface MultilingualAlert {
 
 const ALERT_TEMPLATES: Record<string, Record<string, string>> = {
   en: {
-    complete: "Bhai, scan complete! Verified with Live 2026 Rules. Risk: {risk}. Details: {link}",
+    complete: "Bhai, scan complete! Verified with Live latest Rules. Risk: {risk}. Details: {link}",
     low_risk: "✅ Great! Your content is compliant with latest policies.",
     medium_risk: "⚠️ Some concerns found. Review recommendations.",
     high_risk: "🚨 High risk detected! Immediate action required.",
-    ai_detected: "🤖 AI elements detected. Disclosure label required per 2026 policy.",
+    ai_detected: "🤖 AI elements detected. Disclosure label required per latest policy.",
   },
   hi: {
-    complete: "Bhai, scan complete! Verified with Live 2026 Rules. Risk: {risk}. Details: {link}",
+    complete: "Bhai, scan complete! Verified with Live latest Rules. Risk: {risk}. Details: {link}",
     low_risk: "✅ Badhiya! Aapka content latest policies ke saath compliant hai.",
     medium_risk: "⚠️ Kuch concerns mile hain. Recommendations review karein.",
     high_risk: "🚨 High risk detect hua! Turant action lein.",
-    ai_detected: "🤖 AI elements detect hue. 2026 policy ke hisaab se disclosure label zaroori hai.",
+    ai_detected: "🤖 AI elements detect hue. latest policy ke hisaab se disclosure label zaroori hai.",
   },
   ur: {
-    complete: "Bhai, scan complete! Verified with Live 2026 Rules. Risk: {risk}. Details: {link}",
+    complete: "Bhai, scan complete! Verified with Live latest Rules. Risk: {risk}. Details: {link}",
     low_risk: "✅ Shabash! Aapka content latest policies ke mutabiq hai.",
     medium_risk: "⚠️ Kuch issues mile hain. Baraye meherbani recommendations dekhein.",
     high_risk: "🚨 High risk mila! Fauri karwai zaroori hai.",
-    ai_detected: "🤖 AI elements paye gaye. 2026 policy ke tehet disclosure label lazmi hai.",
+    ai_detected: "🤖 AI elements paye gaye. latest policy ke tehet disclosure label lazmi hai.",
   },
   es: {
-    complete: "¡Hermano, escaneo completo! Verificado con Reglas 2026 en vivo. Riesgo: {risk}. Detalles: {link}",
+    complete: "¡Hermano, escaneo completo! Verificado con Reglas latest en vivo. Riesgo: {risk}. Detalles: {link}",
     low_risk: "✅ ¡Genial! Tu contenido cumple con las últimas políticas.",
     medium_risk: "⚠️ Se encontraron algunas preocupaciones. Revisa las recomendaciones.",
     high_risk: "🚨 ¡Alto riesgo detectado! Se requiere acción inmediata.",
-    ai_detected: "🤖 Elementos de IA detectados. Se requiere etiqueta de divulgación según la política de 2026.",
+    ai_detected: "🤖 Elementos de IA detectados. Se requiere etiqueta de divulgación según la política de latest.",
   },
   ar: {
-    complete: "أخي، اكتمل الفحص! تم التحقق من قواعد 2026 المباشرة. المخاطرة: {risk}. التفاصيل: {link}",
+    complete: "أخي، اكتمل الفحص! تم التحقق من قواعد latest المباشرة. المخاطرة: {risk}. التفاصيل: {link}",
     low_risk: "✅ رائع! محتواك متوافق مع أحدث السياسات.",
     medium_risk: "⚠️ تم العثور على بعض المخاوف. راجع التوصيات.",
     high_risk: "🚨 تم اكتشاف خطر عالي! مطلوب عمل فوري.",
-    ai_detected: "🤖 تم اكتشاف عناصر الذكاء الاصطناعي. مطلوب ملصق إفصاح وفقًا لسياسة 2026.",
+    ai_detected: "🤖 تم اكتشاف عناصر الذكاء الاصطناعي. مطلوب ملصق إفصاح وفقًا لسياسة latest.",
   },
 };
 

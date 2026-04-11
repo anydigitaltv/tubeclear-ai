@@ -450,7 +450,7 @@ const Index = () => {
             <footer className="container mx-auto px-6 py-12 text-center text-sm text-muted-foreground space-y-2">
               <p className="text-gradient font-semibold text-lg">TubeClear</p>
               <p>AI-Powered YouTube Monetization Shield • Built for US/UK Creators</p>
-              <p>© 2026 TubeClear. All rights reserved.</p>
+              <p>© latest TubeClear. All rights reserved.</p>
             </footer>
           </main>
         </div>

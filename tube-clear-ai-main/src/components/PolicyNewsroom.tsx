@@ -2,7 +2,7 @@ import { Newspaper, ExternalLink, Clock, MessageCircle, Repeat2, Heart } from "l
 
 const policies = [
   {
-    date: "Mar 15, 2026",
+    date: "Mar 15, latest",
     title: "YouTube Tightens AI-Generated Content Disclosure Rules",
     summary: "Creators must now label all synthetic media including AI voices, deepfakes, and generated visuals. Non-compliance triggers automatic demonetization.",
     isNew: true,
@@ -11,7 +11,7 @@ const policies = [
     likes: "2.4K",
   },
   {
-    date: "Feb 28, 2026",
+    date: "Feb 28, latest",
     title: "Updated Repetitious Content Policy",
     summary: "Channels uploading substantially similar content across multiple videos may lose monetization eligibility. Templated or mass-produced content faces stricter review.",
     isNew: true,
@@ -20,7 +20,7 @@ const policies = [
     likes: "1.8K",
   },
   {
-    date: "Jan 10, 2026",
+    date: "Jan 10, latest",
     title: "Misleading Metadata Enforcement Expansion",
     summary: "YouTube now uses AI to detect clickbait titles, misleading thumbnails, and keyword-stuffed descriptions. Violations result in limited ads.",
     isNew: false,

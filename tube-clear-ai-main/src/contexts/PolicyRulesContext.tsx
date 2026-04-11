@@ -289,7 +289,7 @@ const DEFAULT_RULES: PolicyRule[] = [
     rule: "Partner Program: Original content requirement",
     keywords: ["partner program", "monetization", "original content"],
     severity: "high",
-    effectiveDate: "2026-01-05",
+    effectiveDate: "latest-01-05",
     description: "Dailymotion partner program requires content ownership"
   },
   {
@@ -386,7 +386,7 @@ export const PolicyRulesProvider = ({ children }: { children: ReactNode }) => {
   }, [getRulesByPlatform]);
 
   const refreshPolicies = useCallback(async () => {
-    // AUTO-UPDATE: Simulate scanning latest 2026 platform news
+    // AUTO-UPDATE: Simulate scanning latest latest platform news
     // In production, this would fetch from news API or backend
     const now = new Date().toISOString();
     
@@ -396,7 +396,7 @@ export const PolicyRulesProvider = ({ children }: { children: ReactNode }) => {
                             new Date(now).getTime() - new Date(lastUpdate).getTime() > 24 * 60 * 60 * 1000; // 24 hours
     
     if (shouldAutoUpdate) {
-      console.log('🔄 Auto-scanning latest 2026 platform policy updates...');
+      console.log('🔄 Auto-scanning latest latest platform policy updates...');
       // Simulate API call to fetch latest policies
       await new Promise(resolve => setTimeout(resolve, 500));
       

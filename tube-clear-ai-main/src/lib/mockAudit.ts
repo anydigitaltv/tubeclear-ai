@@ -34,7 +34,7 @@ export function generateMockAudit(url: string): AuditResult {
         score: aiScore,
         detail: aiScore <= 25
           ? "Content appears to be primarily human-created with proper disclosures."
-          : "Potential AI-generated voice or visuals detected. Ensure proper labeling per 2026 policy.",
+          : "Potential AI-generated voice or visuals detected. Ensure proper labeling per latest policy.",
       },
       {
         id: "metadata",

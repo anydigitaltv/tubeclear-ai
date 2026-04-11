@@ -418,7 +418,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       return {
         isDisclosed: true,
         status: "verified",
-        note: "AI content detected but properly disclosed per 2026 Policy.",
+        note: "AI content detected but properly disclosed per latest Policy.",
       };
     } else {
       return {
@@ -485,7 +485,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
     
     // Overall risk reason - ADJUST based on disclosure status
     if (analysis.disclosureStatus === "verified") {
-      analysis.riskReason = "AI content properly disclosed - compliant with 2026 Policy.";
+      analysis.riskReason = "AI content properly disclosed - compliant with latest Policy.";
     } else {
       analysis.riskReason = analysis.aiDetectionReason || 
                            analysis.metadataReason || 

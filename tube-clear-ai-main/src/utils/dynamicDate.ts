@@ -16,7 +16,7 @@ export const getCurrentMonthYear = (): string => {
   return `${months[now.getMonth()]} ${now.getFullYear()}`;
 };
 
-// Get short month/year (e.g., "Apr 2026")
+// Get short month/year (e.g., "Apr latest")
 export const getShortMonthYear = (): string => {
   const now = new Date();
   return now.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
