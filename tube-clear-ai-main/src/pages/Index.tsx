@@ -355,7 +355,12 @@ const Index = () => {
                 </div>
               )}
               
-              <HeroScan onScan={handleScan} isScanning={isScanning} />
+              <HeroScan 
+                onScan={handleScan} 
+                isScanning={isScanning}
+                selectedPlatform={selectedPlatform}
+                onPlatformChange={setSelectedPlatform}
+              />
               {isScanning && <ScanSkeleton />}
               {auditReport && metadata && (
                 <UniversalAuditReport

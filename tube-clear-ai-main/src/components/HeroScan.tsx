@@ -7,13 +7,45 @@ import { Badge } from "@/components/ui/badge";
 interface HeroScanProps {
   onScan: (url: string, platformId: string) => void;
   isScanning: boolean;
+  selectedPlatform?: string;
+  onPlatformChange?: (platform: string) => void;
 }
 
-const HeroScan = ({ onScan, isScanning }: HeroScanProps) => {
+const HeroScan = ({ onScan, isScanning, selectedPlatform = "youtube", onPlatformChange }: HeroScanProps) => {
   const [url, setUrl] = useState("");
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [selectedEngine, setSelectedEngine] = useState<"gemini" | "groq" | "grok">("gemini");
+
+  const platforms = [
+    { id: "youtube", name: "YouTube", color: "text-red-500", bgColor: "hover:bg-red-500/10" },
+    { id: "tiktok", name: "TikTok", color: "text-pink-500", bgColor: "hover:bg-pink-500/10" },
+    { id: "facebook", name: "Facebook", color: "text-blue-600", bgColor: "hover:bg-blue-600/10" },
+    { id: "instagram", name: "Instagram", color: "text-purple-500", bgColor: "hover:bg-purple-500/10" },
+    { id: "dailymotion", name: "Dailymotion", color: "text-blue-400", bgColor: "hover:bg-blue-400/10" },
+  ];
+
+  const getDynamicHeading = () => {
+    const platformNames: Record<string, string> = {
+      youtube: "YouTube",
+      tiktok: "TikTok",
+      facebook: "Facebook",
+      instagram: "Instagram",
+      dailymotion: "Dailymotion",
+    };
+    return platformNames[selectedPlatform] || "YouTube";
+  };
+
+  const getSmartPlaceholder = () => {
+    const placeholders: Record<string, string> = {
+      youtube: "Paste YouTube Video URL...",
+      tiktok: "Paste TikTok Video Link...",
+      facebook: "Paste Facebook Video URL...",
+      instagram: "Paste Instagram Reel/Video URL...",
+      dailymotion: "Paste Dailymotion Video URL...",
+    };
+    return placeholders[selectedPlatform] || "Paste any supported video URL...";
+  };
 
   const detectPlatform = (inputUrl: string): string => {
     if (inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be')) return 'youtube';
@@ -53,7 +85,7 @@ const HeroScan = ({ onScan, isScanning }: HeroScanProps) => {
           </div>
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1]">
-            Protect Your <span className="text-gradient">YouTube</span> Revenue
+            Protect Your <span className="text-gradient">{getDynamicHeading()}</span> Revenue
           </h1>
 
           <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed">
@@ -79,10 +111,35 @@ const HeroScan = ({ onScan, isScanning }: HeroScanProps) => {
               </p>
             </div>
 
-            {/* Platform Selection Indicator */}
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              {getPlatformIcon(detectPlatform(url || ''))}
-              <span>Supports: YouTube • TikTok • Instagram • Facebook • Dailymotion</span>
+            {/* Compact Platform Selector - Above URL Input */}
+            <div className="glass-card border-border/30 p-3 rounded-lg">
+              <div className="flex items-center justify-center gap-2">
+                {platforms.map((platform) => (
+                  <button
+                    key={platform.id}
+                    type="button"
+                    onClick={() => onPlatformChange?.(platform.id)}
+                    className={`flex-1 max-w-[100px] flex flex-col items-center gap-1 p-2 rounded-lg transition-all duration-200 ${
+                      selectedPlatform === platform.id
+                        ? `${platform.bgColor} border border-current ${platform.color}`
+                        : "hover:bg-secondary/50 border border-transparent"
+                    }`}
+                  >
+                    <div className={`text-lg ${selectedPlatform === platform.id ? platform.color : "text-muted-foreground"}`}>
+                      {platform.id === "youtube" && "📺"}
+                      {platform.id === "tiktok" && "🎵"}
+                      {platform.id === "facebook" && "👥"}
+                      {platform.id === "instagram" && "📸"}
+                      {platform.id === "dailymotion" && "🎬"}
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      selectedPlatform === platform.id ? platform.color : "text-muted-foreground"
+                    }`}>
+                      {platform.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* URL Input */}
@@ -91,7 +148,7 @@ const HeroScan = ({ onScan, isScanning }: HeroScanProps) => {
                 <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="url"
-                  placeholder="Paste any supported video URL..."
+                  placeholder={getSmartPlaceholder()}
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="pl-12 h-14 bg-secondary/50 border-border/50 text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 text-base"
