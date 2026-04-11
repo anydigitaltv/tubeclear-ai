@@ -13,6 +13,7 @@ import {
 import VideoCard from "@/components/VideoCard";
 import { useVideos } from "@/contexts/VideoContext";
 import { usePlatforms, type PlatformId } from "@/contexts/PlatformContext";
+import { toast } from "sonner";
 
 const VideoDashboard = () => {
   const { videos, isLoading, lastSynced, refreshVideos } = useVideos();
@@ -72,6 +73,16 @@ const VideoDashboard = () => {
   const connectedPlatforms = platforms.filter(p => p.connected);
   const videoCount = filteredVideos.length;
 
+  const handleRefresh = async () => {
+    toast.info("Syncing your channel videos...", {
+      description: "Fetching latest videos and running policy scans"
+    });
+    await refreshVideos();
+    toast.success("Sync complete!", {
+      description: `Synced ${videos.length} videos from your channels`
+    });
+  };
+
   const formatSyncTime = (date: Date | null) => {
     if (!date) return "Never";
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -117,7 +128,7 @@ const VideoDashboard = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={refreshVideos}
+            onClick={handleRefresh}
             disabled={isLoading}
             className="gap-1.5"
           >

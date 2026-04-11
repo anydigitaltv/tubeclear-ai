@@ -168,6 +168,11 @@ export const PlatformProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
+    // Trigger video sync after successful connection
+    window.dispatchEvent(new CustomEvent('platform-connected', { 
+      detail: { platformId, accountName } 
+    }));
+
     return { success: true };
   }, [platforms, isGuest, user]);
 

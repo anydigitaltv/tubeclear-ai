@@ -1,5 +1,14 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { usePlatforms, type PlatformId } from "@/contexts/PlatformContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { fetchChannelVideos, type ChannelVideo } from "@/utils/channelVideoFetcher";
+import { autoScanVideo, type ScanResult } from "@/utils/autoScanService";
+import { 
+  saveVideosToDatabase, 
+  loadVideosFromDatabase,
+  saveVideosToLocalStorage,
+  loadVideosFromLocalStorage
+} from "@/utils/channelVideoStorage";
 
 export interface Video {
   id: string;
@@ -13,6 +22,8 @@ export interface Video {
   duration: string; // Display format (e.g., "12:34")
   durationSeconds?: number; // For pricing calculation
   riskScore?: number;
+  scanResult?: ScanResult;
+  videoUrl?: string;
 }
 
 interface VideoContextType {
@@ -28,53 +39,71 @@ const VIDEO_SYNC_KEY = "tubeclear_last_sync";
 
 const VideoContext = createContext<VideoContextType | undefined>(undefined);
 
-// Mock video data generator (replace with actual API calls later)
-const generateMockVideos = (platformId: PlatformId): Video[] => {
-  const videoTemplates = [
-    { title: "How to Grow Your Channel Fast", views: 125000, likes: 5400, comments: 234, duration: "12:34", durationSeconds: 754 },
-    { title: "Best Editing Tips for Beginners", views: 89000, likes: 3200, comments: 156, duration: "8:45", durationSeconds: 525 },
-    { title: "Content Strategy That Works", views: 234000, likes: 8900, comments: 567, duration: "15:20", durationSeconds: 920 },
-    { title: "Monetization Guide 2024", views: 456000, likes: 12000, comments: 890, duration: "20:15", durationSeconds: 1215 },
-    { title: "Thumbnail Secrets Revealed", views: 178000, likes: 6700, comments: 345, duration: "9:30", durationSeconds: 570 },
-    { title: "Algorithm Hacks You Need", views: 567000, likes: 15000, comments: 1023, duration: "18:45", durationSeconds: 1125 },
-    { title: "Viral Video Formula", views: 789000, likes: 23000, comments: 1567, duration: "14:22", durationSeconds: 862 },
-    { title: "Analytics Deep Dive", views: 92000, likes: 4100, comments: 189, duration: "11:55", durationSeconds: 715 },
-    // Add some Shorts
-    { title: "Quick Tip #shorts", views: 1200000, likes: 45000, comments: 890, duration: "0:45", durationSeconds: 45 },
-    { title: "Behind the Scenes #shorts", views: 890000, likes: 34000, comments: 567, duration: "0:58", durationSeconds: 58 },
-  ];
+// Convert ChannelVideo to Video format
+const channelVideoToVideo = (channelVideo: ChannelVideo & { riskScore?: number; scanResult?: ScanResult }): Video => {
+  const minutes = Math.floor(channelVideo.durationSeconds / 60);
+  const seconds = channelVideo.durationSeconds % 60;
+  const duration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-  return videoTemplates.map((template, index) => ({
-    id: `${platformId}-${index}-${Date.now()}`,
-    platformId,
-    title: template.title,
-    thumbnail: `https://picsum.photos/seed/${platformId}${index}/320/180`,
-    views: template.views,
-    likes: template.likes,
-    comments: template.comments,
-    duration: template.duration,
-    durationSeconds: template.durationSeconds,
-    publishedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-    riskScore: Math.floor(Math.random() * 100),
-  }));
+  return {
+    id: channelVideo.videoId,
+    platformId: channelVideo.platformId,
+    title: channelVideo.title,
+    thumbnail: channelVideo.thumbnail,
+    views: channelVideo.views,
+    likes: Math.floor(channelVideo.views * 0.045), // Approximate 4.5% like rate
+    comments: Math.floor(channelVideo.views * 0.008), // Approximate 0.8% comment rate
+    publishedAt: channelVideo.publishedAt,
+    duration,
+    durationSeconds: channelVideo.durationSeconds,
+    riskScore: channelVideo.riskScore,
+    scanResult: channelVideo.scanResult,
+    videoUrl: channelVideo.videoUrl,
+  };
 };
 
 export const VideoProvider = ({ children }: { children: ReactNode }) => {
   const { platforms } = usePlatforms();
+  const { user, isGuest } = useAuth();
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
 
-  // Load videos from localStorage on mount
+  // Load videos from database/localStorage on mount
   useEffect(() => {
-    const loadStoredVideos = () => {
+    const loadStoredVideos = async () => {
       try {
-        const stored = localStorage.getItem(VIDEO_STORAGE_KEY);
-        const syncTime = localStorage.getItem(VIDEO_SYNC_KEY);
-        
-        if (stored) {
-          setVideos(JSON.parse(stored));
+        if (!isGuest && user) {
+          // Load from Supabase for authenticated users
+          const dbVideos = await loadVideosFromDatabase(user.id);
+          if (dbVideos.length > 0) {
+            const convertedVideos = dbVideos.map((dbVideo: any) => ({
+              id: dbVideo.video_id,
+              platformId: dbVideo.platform_id as PlatformId,
+              title: dbVideo.title,
+              thumbnail: dbVideo.thumbnail_url || '',
+              views: dbVideo.views_count || 0,
+              likes: Math.floor((dbVideo.views_count || 0) * 0.045),
+              comments: Math.floor((dbVideo.views_count || 0) * 0.008),
+              publishedAt: dbVideo.published_at || new Date().toISOString(),
+              duration: `${Math.floor((dbVideo.duration_seconds || 0) / 60)}:${(dbVideo.duration_seconds % 60).toString().padStart(2, '0')}`,
+              durationSeconds: dbVideo.duration_seconds,
+              riskScore: dbVideo.risk_score,
+              scanResult: dbVideo.scan_result,
+              videoUrl: dbVideo.video_url,
+            }));
+            setVideos(convertedVideos);
+          }
+        } else {
+          // Load from localStorage for guests
+          const localVideos = loadVideosFromLocalStorage();
+          if (localVideos.length > 0) {
+            setVideos(localVideos.map(channelVideoToVideo));
+          }
         }
+
+        // Load sync time
+        const syncTime = localStorage.getItem(VIDEO_SYNC_KEY);
         if (syncTime) {
           setLastSynced(new Date(syncTime));
         }
@@ -84,9 +113,9 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadStoredVideos();
-  }, []);
+  }, [user, isGuest]);
 
-  // Lazy refresh: Only sync on app open (when connected platforms change)
+  // Auto-sync when platforms change
   useEffect(() => {
     const connectedPlatforms = platforms.filter(p => p.connected);
     if (connectedPlatforms.length > 0 && videos.length === 0) {
@@ -94,29 +123,74 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [platforms]);
 
+  // Listen for platform connection events
+  useEffect(() => {
+    const handlePlatformConnected = () => {
+      console.log('🔄 Platform connected event received, triggering video sync...');
+      refreshVideos();
+    };
+
+    window.addEventListener('platform-connected', handlePlatformConnected as EventListener);
+    
+    return () => {
+      window.removeEventListener('platform-connected', handlePlatformConnected as EventListener);
+    };
+  }, [refreshVideos]);
+
   const refreshVideos = useCallback(async () => {
     setIsLoading(true);
+    console.log('🚀 Starting video sync...');
     
     const connectedPlatforms = platforms.filter(p => p.connected);
-    const allVideos: Video[] = [];
+    const allChannelVideos: Array<ChannelVideo & { riskScore?: number; scanResult?: ScanResult }> = [];
 
-    // Fetch videos for each connected platform
+    // Fetch and scan videos for each connected platform
     for (const platform of connectedPlatforms) {
-      // Mock data - replace with actual API call
-      const platformVideos = generateMockVideos(platform.id);
-      allVideos.push(...platformVideos);
+      try {
+        const channelUrl = platform.accountName || '';
+        console.log(`📺 Fetching videos from ${platform.name}...`);
+        
+        // Step 1: Fetch channel videos
+        const channelVideos = await fetchChannelVideos(platform.id, channelUrl);
+        console.log(`✅ Fetched ${channelVideos.length} videos from ${platform.name}`);
+        
+        // Step 2: Auto-scan each video
+        console.log(`🔍 Scanning ${channelVideos.length} videos...`);
+        for (const vid of channelVideos) {
+          const scanResult = await autoScanVideo(vid);
+          allChannelVideos.push({
+            ...vid,
+            riskScore: scanResult.riskScore,
+            scanResult: scanResult
+          });
+        }
+        console.log(`✅ Scanned all videos from ${platform.name}`);
+        
+      } catch (error) {
+        console.error(`Error fetching videos from ${platform.name}:`, error);
+      }
     }
 
-    setVideos(allVideos);
+    // Convert to Video format
+    const convertedVideos = allChannelVideos.map(channelVideoToVideo);
+    
+    // Save to database/localStorage
+    if (!isGuest && user) {
+      await saveVideosToDatabase(allChannelVideos, user.id);
+    } else {
+      saveVideosToLocalStorage(allChannelVideos);
+    }
+    
+    setVideos(convertedVideos);
     const now = new Date();
     setLastSynced(now);
     
-    // Store in localStorage
-    localStorage.setItem(VIDEO_STORAGE_KEY, JSON.stringify(allVideos));
+    // Store sync time
     localStorage.setItem(VIDEO_SYNC_KEY, now.toISOString());
     
+    console.log(`✅ Video sync complete! Total videos: ${convertedVideos.length}`);
     setIsLoading(false);
-  }, [platforms]);
+  }, [platforms, user, isGuest]);
 
   const getVideosByPlatform = useCallback((platformId: PlatformId) => {
     return videos.filter(v => v.platformId === platformId);
