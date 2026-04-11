@@ -29,6 +29,20 @@ import type { PlatformId } from "@/contexts/PlatformContext";
 // Store pending scan input for modal callbacks
 let pendingScanInput: any = null;
 
+const HISTORY_KEY = "tubeclear_scan_history";
+
+const loadHistory = (): ScanHistoryItem[] => {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const saveHistory = (history: ScanHistoryItem[]) => {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
@@ -79,6 +93,18 @@ const Index = () => {
 
     fetchAuditConfigs();
   }, []);
+
+  // Auto-select first config when platform changes
+  useEffect(() => {
+    if (auditConfigs.length > 0) {
+      const platformConfigs = auditConfigs.filter(
+        config => !config.platform || config.platform === selectedPlatform
+      );
+      if (platformConfigs.length > 0) {
+        setSelectedConfig(platformConfigs[0].id);
+      }
+    }
+  }, [selectedPlatform, auditConfigs]);
 
   const sectionRefs = {
     scan: useRef<HTMLDivElement>(null),

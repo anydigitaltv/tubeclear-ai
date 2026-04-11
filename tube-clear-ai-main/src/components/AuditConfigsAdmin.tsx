@@ -270,6 +270,7 @@ const AuditConfigsAdmin = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
+                <TableHead>Platform</TableHead>
                 <TableHead>Engine</TableHead>
                 <TableHead>System Prompt</TableHead>
                 <TableHead>Status</TableHead>
@@ -280,7 +281,7 @@ const AuditConfigsAdmin = () => {
             <TableBody>
               {configs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No audit configs found. Click "Add Config" to create one.
                   </TableCell>
                 </TableRow>
@@ -296,6 +297,25 @@ const AuditConfigsAdmin = () => {
                         />
                       ) : (
                         <span className="font-medium">{config.label}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === config.id ? (
+                        <select
+                          value={formData.platform}
+                          onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                          className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm"
+                        >
+                          <option value="youtube">YouTube</option>
+                          <option value="tiktok">TikTok</option>
+                          <option value="facebook">Facebook</option>
+                          <option value="instagram">Instagram</option>
+                          <option value="dailymotion">Dailymotion</option>
+                        </select>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs capitalize">
+                          {config.platform || "youtube"}
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>
