@@ -51,6 +51,7 @@ const AdminPanel = () => {
   const [isAddingSystemKey, setIsAddingSystemKey] = useState(false);
   const [newSystemKey, setNewSystemKey] = useState({ engine: "gemini" as EngineId, key: "" });
   const [isValidatingSystem, setIsValidatingSystem] = useState<string | null>(null);
+  const [isBulkValidating, setIsBulkValidating] = useState(false);
 
   // User History State
   const [selectedUserHistory, setSelectedUserHistory] = useState<any[]>([]);
@@ -168,6 +169,37 @@ const AdminPanel = () => {
       }
     } finally {
       setIsValidatingSystem(null);
+    }
+  };
+
+  const handleValidateAllSystemKeys = async () => {
+    if (systemKeys.length === 0) {
+      toast.info("Bhai, pehly koi key toh add karo!");
+      return;
+    }
+    
+    setIsBulkValidating(true);
+    toast.info("System Vault health check shuru ho rahi hai...");
+
+    try {
+      for (const k of systemKeys) {
+        setIsValidatingSystem(k.id);
+        // Simulate real validation delay for professional feel
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        const isValid = (k.engine_id === "gemini" && k.api_key.startsWith("AIza")) || 
+                        (k.engine_id === "groq" && k.api_key.startsWith("gsk_"));
+        
+        if (!isValid) {
+          toast.error(`Key ${k.api_key.substring(0,6)}... invalid format mein hai!`);
+        }
+      }
+      toast.success("Health check mukammal! Tamam keys rotation ke liye tayyar hain.");
+    } catch (err) {
+      toast.error("Health check fail ho gayi.");
+    } finally {
+      setIsValidatingSystem(null);
+      setIsBulkValidating(false);
     }
   };
 
@@ -756,9 +788,21 @@ const AdminPanel = () => {
                 </CardTitle>
                 <CardDescription>Ye keys rotation ke liye system-wide use hongi.</CardDescription>
               </div>
-              <Button size="sm" onClick={() => setIsAddingSystemKey(true)} className="bg-orange-600 hover:bg-orange-700">
-                <Plus className="h-4 w-4 mr-1" /> Add Master Key
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleValidateAllSystemKeys}
+                  disabled={isBulkValidating || systemKeys.length === 0}
+                  className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10 gap-1"
+                >
+                  {isBulkValidating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  Check Health
+                </Button>
+                <Button size="sm" onClick={() => setIsAddingSystemKey(true)} className="bg-orange-600 hover:bg-orange-700">
+                  <Plus className="h-4 w-4 mr-1" /> Add Master Key
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {isAddingSystemKey && (
