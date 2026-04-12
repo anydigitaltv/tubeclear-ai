@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save } from "lucide-react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,25 +51,19 @@ const AdminPanel = () => {
   const [revenueStats, setRevenueStats] = useState({ earned: 0, spent: 0, tx: 0 });
 
   // Global Pricing State
-  const [globalPrices, setGlobalPrices] = useState(() => {
-    try {
-      const stored = localStorage.getItem("tubeclear_global_pricing");
-      return stored ? JSON.parse(stored) : {
-        pre_scan_base: 5,
-        deep_scan_per_min: 12,
-        admin_margin: 1.2,
-        min_scan_cost: 10
-      };
-    } catch {
-      return {
-        pre_scan_base: 5,
-        deep_scan_per_min: 12,
-        admin_margin: 1.2,
-        min_scan_cost: 10
-      };
-    }
+  const [globalPrices, setGlobalPrices] = useState({
+    pre_scan_base: 5,
+    deep_scan_per_min: 12,
+    admin_margin: 1.2,
+    min_scan_cost: 10
   });
   const [isSavingPrices, setIsSavingPrices] = useState(false);
+
+  // IP Security State
+  const [ipBlacklist, setIpBlacklist] = useState<any[]>([]);
+  const [isAutoBlockEnabled, setIsAutoBlockEnabled] = useState(() => {
+    return localStorage.getItem("tubeclear_auto_block_enabled") === "true";
+  });
 
   const activeViolations = violations.filter((v) => v.status === "active");
   const reviewedViolations = violations.filter((v) => v.status === "reviewed" || v.status === "dismissed");
@@ -101,6 +95,11 @@ const AdminPanel = () => {
           const earned = data.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
           const spent = data.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
           setRevenueStats({ earned, spent, tx: data.length });
+        }
+
+        const { data: ips } = await supabase.from('ip_blacklist').select('*').order('last_attempt', { ascending: false });
+        if (ips) {
+          setIpBlacklist(ips);
         }
       };
       fetchStats();
@@ -143,14 +142,6 @@ const AdminPanel = () => {
         .eq('id', profile.id);
 
       if (updateError) throw updateError;
-
-      // Record in Analytics Ledger
-      await supabase.from("coin_transactions").insert({
-        user_id: profile.id,
-        amount: refundAmount,
-        type: "admin_bonus",
-        description: `Manual Refund: ${refundReason || 'No reason provided'}`
-      });
 
       toast.success(`${refundAmount} Coins refund kar diye gaye hain!`);
       setRefundTarget("");
@@ -248,6 +239,17 @@ const AdminPanel = () => {
       toast.error("Failed to save prices.");
     } finally {
       setIsSavingPrices(false);
+    }
+  };
+
+  const handleUnblockIP = async (ip: string) => {
+    try {
+      const { error } = await supabase.from('ip_blacklist').delete().eq('ip_address', ip);
+      if (error) throw error;
+      toast.success("IP removed from blacklist");
+      setIpBlacklist(prev => prev.filter(item => item.ip_address !== ip));
+    } catch (err) {
+      toast.error("Failed to unblock IP");
     }
   };
 
@@ -403,7 +405,7 @@ const AdminPanel = () => {
       </div>
 
       <Tabs defaultValue="violations" className="w-full">
-        <TabsList className="grid w-full max-w-5xl grid-cols-7">
+        <TabsList className="grid w-full max-w-full grid-cols-5 md:grid-cols-10">
           <TabsTrigger value="violations">Violations</TabsTrigger>
           <TabsTrigger value="removed">Removed Features</TabsTrigger>
           <TabsTrigger value="features">Active Checks</TabsTrigger>
@@ -517,10 +519,7 @@ const AdminPanel = () => {
                               <Badge className="bg-yellow-500/20 text-yellow-400 text-[10px] h-4">MANUAL REVIEW</Badge>
                             )}
                           </div>
-                          <div className="flex flex-col gap-0.5">
-                            <p className="text-xs text-muted-foreground">Amount: {record.amount} | Coins: {record.coins} | Method: {record.method}</p>
-                            {record.ipAddress && <p className="text-[10px] text-blue-400 font-mono">IP: {record.ipAddress}</p>}
-                          </div>
+                          <p className="text-xs text-muted-foreground">Amount: {record.amount} | Coins: {record.coins} | Method: {record.method}</p>
                           <p className="text-[10px] text-muted-foreground italic">Detected: {new Date(record.createdAt).toLocaleString()}</p>
                         </div>
                         <div className="flex gap-2">
@@ -630,6 +629,67 @@ const AdminPanel = () => {
                   ⚠️ Ye tabdeeli foran tamam users par apply ho jayegi
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-4">
+          <Card className="glass-card border-red-500/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2 text-red-500">
+                  <ShieldAlert className="h-5 w-5" />
+                  IP Blacklist & Security
+                </CardTitle>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border/50">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Auto-Block (3 Fails)</span>
+                  <button 
+                    onClick={() => {
+                      const newVal = !isAutoBlockEnabled;
+                      setIsAutoBlockEnabled(newVal);
+                      localStorage.setItem("tubeclear_auto_block_enabled", String(newVal));
+                      toast.success(`Auto-Block ${newVal ? 'Enabled' : 'Disabled'}`);
+                    }}
+                    className={cn("w-8 h-4 rounded-full transition-all relative", isAutoBlockEnabled ? "bg-red-500" : "bg-slate-700")}
+                  >
+                    <div className={cn("absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all", isAutoBlockEnabled ? "left-4.5" : "left-0.5")} />
+                  </button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                {ipBlacklist.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Check className="h-12 w-12 mx-auto mb-2 text-green-500 opacity-50" />
+                    <p>No IPs currently blacklisted.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {ipBlacklist.map((ip) => (
+                      <div key={ip.ip_address} className="p-3 rounded bg-secondary/20 border border-border/10 flex justify-between items-center">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-sm">{ip.ip_address}</span>
+                            <Badge variant={ip.is_blocked ? "destructive" : "outline"} className="text-[10px] h-4">
+                              {ip.is_blocked ? "BLOCKED" : `${ip.attempts} Attempts`}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground italic">Reason: {ip.reason}</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-xs text-green-500 hover:bg-green-500/10"
+                          onClick={() => handleUnblockIP(ip.ip_address)}
+                        >
+                          Unblock
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>

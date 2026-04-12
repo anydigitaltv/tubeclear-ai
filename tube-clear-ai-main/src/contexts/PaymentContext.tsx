@@ -228,6 +228,49 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     return { suspicious: false };
   };
 
+  // Helper to check if IP is blocked
+  const checkIPBlocked = useCallback(async (ip: string): Promise<boolean> => {
+    try {
+      const { data } = await supabase
+        .from('ip_blacklist')
+        .select('is_blocked')
+        .eq('ip_address', ip)
+        .eq('is_blocked', true)
+        .single();
+      return !!data;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Helper to record suspicious attempt and auto-block
+  const recordIPAttempt = useCallback(async (ip: string, reason: string) => {
+    try {
+      const autoBlock = localStorage.getItem("tubeclear_auto_block_enabled") === "true";
+      if (!autoBlock) return;
+
+      const { data } = await supabase
+        .from('ip_blacklist')
+        .select('*')
+        .eq('ip_address', ip)
+        .single();
+
+      const attempts = (data?.attempts || 0) + 1;
+      const shouldBlock = attempts >= 3; // Block after 3 failed attempts
+
+      await supabase.from('ip_blacklist').upsert({
+        ip_address: ip,
+        attempts,
+        is_blocked: shouldBlock || (data?.is_blocked || false),
+        reason: shouldBlock ? `Auto-blocked: ${reason}` : (data?.reason || reason),
+        last_attempt: new Date().toISOString(),
+        blocked_at: shouldBlock ? new Date().toISOString() : data?.blocked_at
+      });
+    } catch (err) {
+      console.error("Failed to record IP attempt:", err);
+    }
+  }, []);
+
   // Fetch User IP Address
   const fetchUserIP = async (): Promise<string> => {
     try {
@@ -246,6 +289,13 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
   ): Promise<{ success: boolean; message: string }> => {
     setIsProcessing(true);
     const userIP = await fetchUserIP();
+
+    // 1. SECURITY: Check if current IP is already blacklisted
+    const isBlocked = await checkIPBlocked(userIP);
+    if (isBlocked) {
+      setIsProcessing(false);
+      return { success: false, message: "Aapka IP blacklist kar diya gaya hai suspicious activity ki wajah se. Admin se rabta karein." };
+    }
 
     try {
       // Check if input is a promo code
@@ -347,6 +397,9 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
       const ocrReliable = ocrData ? ocrData.confidence > 0.75 : true;
       
       if (securityCheck.suspicious || !ocrReliable) {
+        // 2. SECURITY: Record failed attempt for auto-blocking
+        await recordIPAttempt(userIP, securityCheck.reason || "Low OCR confidence");
+
         addNotification({
           type: "warning",
           title: "Payment Under Review",
