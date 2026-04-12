@@ -113,12 +113,19 @@ const NotificationCenter = () => {
                 {featureStatuses.map((feature) => (
                   <div
                     key={feature.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-secondary/30"
+                    className="flex flex-col gap-1 p-3 rounded-lg bg-secondary/30 border border-border/10"
                   >
-                    <span className="text-sm">{feature.name}</span>
-                    <Badge className={cn("text-xs capitalize", getStatusColor(feature.status))}>
-                      {feature.status}
-                    </Badge>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">{feature.name}</span>
+                      <Badge className={cn("text-[10px] h-5 capitalize", getStatusColor(feature.status))}>
+                        {feature.status}
+                      </Badge>
+                    </div>
+                    {feature.message && (
+                      <p className="text-[11px] text-muted-foreground leading-tight italic">
+                        Reason: {feature.message}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

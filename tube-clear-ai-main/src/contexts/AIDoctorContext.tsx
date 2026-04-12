@@ -48,7 +48,7 @@ const DISABLED_KEY = "tubeclear_disabled_features";
 
 export const AIDoctorProvider = ({ children }: { children: ReactNode }) => {
   const { addNotification, updateFeatureStatus } = useNotifications();
-  const { removeFeature } = useDynamicCompliance();
+  const { removeFeature, addFeature } = useDynamicCompliance();
 
   const [violations, setViolations] = useState<PolicyViolation[]>(() => {
     try {
@@ -141,6 +141,10 @@ export const AIDoctorProvider = ({ children }: { children: ReactNode }) => {
 
   const enableFeature = useCallback((feature: string) => {
     saveDisabled(disabledFeatures.filter((f) => f !== feature));
+    
+    // Re-add feature to Privacy Policy & Terms automatically
+    addFeature(feature);
+    
     const updated = violations.map((v) =>
       v.feature === feature && v.status === "active"
         ? { ...v, status: "reviewed" as const }
