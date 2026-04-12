@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn } from "lucide-react";
+import { useState } from "react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,11 @@ const AdminPanel = () => {
   const [refundAmount, setRefundAmount] = useState(10);
   const [refundReason, setRefundReason] = useState("");
   const [isProcessingRefund, setIsProcessingRefund] = useState(false);
+
+  // User Search State
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const activeViolations = violations.filter((v) => v.status === "active");
   const reviewedViolations = violations.filter((v) => v.status === "reviewed" || v.status === "dismissed");
@@ -107,6 +112,47 @@ const AdminPanel = () => {
       case "high": return "bg-orange-500/20 text-orange-500 border-orange-500/30";
       case "medium": return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30";
       default: return "bg-blue-500/20 text-blue-500 border-blue-500/30";
+    }
+  };
+
+  const handleSearchUser = async () => {
+    if (!userSearchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`email.ilike.%${userSearchQuery}%,full_name.ilike.%${userSearchQuery}%,id.eq.${userSearchQuery}`)
+        .limit(10);
+
+      if (error) throw error;
+      setSearchResults(data || []);
+      if (data?.length === 0) toast.info("Bhai, is email ka koi user nahi mila.");
+    } catch (err) {
+      toast.error("Search fail ho gayi!");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleUpdateCoins = async (userId: string, currentCoins: number, amount: number) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ coins: currentCoins + amount })
+        .eq('id', userId);
+
+      if (error) throw error;
+      
+      toast.success(`Mubarak! User ko ${amount} coins de diye gaye.`);
+      
+      // Local state update karein taake UI foran refresh ho
+      setSearchResults(prev => prev.map(u => 
+        u.id === userId ? { ...u, coins: (u.coins || 0) + amount } : u
+      ));
+      
+    } catch (err) {
+      toast.error("Coins update nahi ho saky.");
     }
   };
 
@@ -231,12 +277,13 @@ const AdminPanel = () => {
       </div>
 
       <Tabs defaultValue="violations" className="w-full">
-        <TabsList className="grid w-full max-w-4xl grid-cols-6">
+        <TabsList className="grid w-full max-w-5xl grid-cols-7">
           <TabsTrigger value="violations">Violations</TabsTrigger>
           <TabsTrigger value="removed">Removed Features</TabsTrigger>
           <TabsTrigger value="features">Active Checks</TabsTrigger>
           <TabsTrigger value="alerts">Alert History</TabsTrigger>
           <TabsTrigger value="payments">Payment Audit</TabsTrigger>
+          <TabsTrigger value="users">User Profiles</TabsTrigger>
           <TabsTrigger value="refunds" className="text-yellow-500">Manual Refunds</TabsTrigger>
         </TabsList>
 
@@ -356,6 +403,79 @@ const AdminPanel = () => {
                     ))}
                   </div>
                 )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="users" className="mt-4">
+          <Card className="glass-card border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <UserSearch className="h-5 w-5" />
+                User & Coins Manager
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input 
+                    type="text" 
+                    placeholder="Search by Email, Name or User ID..."
+                    className="w-full bg-secondary/50 border border-border/50 rounded-lg h-10 pl-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearchUser()}
+                  />
+                </div>
+                <Button onClick={handleSearchUser} disabled={isSearching}>
+                  {isSearching ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Search"}
+                </Button>
+              </div>
+
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-3">
+                  {searchResults.map((u) => (
+                    <div key={u.id} className="p-4 rounded-lg bg-secondary/30 border border-border/20">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-primary" />
+                            <span className="font-bold">{u.full_name || 'No Name'}</span>
+                            <Badge variant="outline" className="text-[10px]">{u.id.slice(0, 8)}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{u.email}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Coins className="h-4 w-4 text-yellow-500" />
+                            <span className="text-sm font-bold text-yellow-500">{u.coins || 0} Current Coins</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold text-center">Add Coins</span>
+                          <div className="flex gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-8 text-xs border-green-500/30 hover:bg-green-500/10 text-green-500"
+                              onClick={() => handleUpdateCoins(u.id, u.coins || 0, 100)}
+                            >
+                              +100
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-8 text-xs border-green-500/30 hover:bg-green-500/10 text-green-500"
+                              onClick={() => handleUpdateCoins(u.id, u.coins || 0, 500)}
+                            >
+                              +500
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </ScrollArea>
             </CardContent>
           </Card>
