@@ -144,6 +144,14 @@ const AdminPanel = () => {
 
       if (updateError) throw updateError;
 
+      // Record in Analytics Ledger
+      await supabase.from("coin_transactions").insert({
+        user_id: profile.id,
+        amount: refundAmount,
+        type: "admin_bonus",
+        description: `Manual Refund: ${refundReason || 'No reason provided'}`
+      });
+
       toast.success(`${refundAmount} Coins refund kar diye gaye hain!`);
       setRefundTarget("");
       setRefundReason("");

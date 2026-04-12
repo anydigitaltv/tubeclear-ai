@@ -90,7 +90,7 @@ const USED_TIDS_KEY = "tubeclear_used_tids";
 
 export const PaymentProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const { addCoins } = useCoins();
+  const { addCoins, refetchBalance } = useCoins();
   const { addNotification } = useNotifications();
 
   const [paymentRecords, setPaymentRecords] = useState<PaymentRecord[]>(() => {
@@ -351,7 +351,25 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         
       const coins = coinPackage.coins;
 
-      await addCoins(coins, "purchase", `Payment via ${method} - TID: ${input}`);
+      // SYNC WITH DATABASE: Update coins and record transaction
+      if (user) {
+        const { data: profile } = await supabase.from("profiles").select("coins").eq("id", user.id).single();
+        const currentCoins = profile?.coins || 0;
+        
+        await supabase.from("profiles").update({ coins: currentCoins + coins }).eq("id", user.id);
+        
+        await supabase.from("coin_transactions").insert({
+          user_id: user.id,
+          amount: coins,
+          type: "purchase",
+          description: `Payment approved (${method}) - TID: ${input}`
+        });
+        
+        await refetchBalance();
+      } else {
+        // Fallback for guests
+        await addCoins(coins, "purchase", `Payment via ${method} - TID: ${input}`);
+      }
 
       // Mark TID as used
       const usedTIDs = JSON.parse(localStorage.getItem(USED_TIDS_KEY) || "[]");
