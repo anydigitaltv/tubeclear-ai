@@ -31,6 +31,7 @@ import { vault } from "@/utils/historicalVault";
 import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import CoinSuccessAnimation from "@/components/CoinSuccessAnimation";
 import type { PlatformId } from "@/contexts/PlatformContext";
 
 // Store pending scan input for modal callbacks
@@ -72,6 +73,7 @@ const Index = () => {
   const [isCoinModalOpen, setIsCoinModalOpen] = useState(false);
   const [pendingScanParams, setPendingScanParams] = useState<{url: string, platformId: string} | null>(null);
   const [currentScanCost, setCurrentScanCost] = useState(10);
+  const [showCoinSuccess, setShowCoinSuccess] = useState(false);
   
   // Pre-scan modal state
   const [showPreScanModal, setShowPreScanModal] = useState(false);
@@ -275,8 +277,15 @@ const Index = () => {
         return;
       }
 
-      toast.success("Coins deducted! Using Official High-Speed Auditor Keys.");
-      startScanProcess(pendingScanParams.url, pendingScanParams.platformId);
+      // Show professional success animation
+      setShowCoinSuccess(true);
+      
+      // Wait for animation to finish before starting scan
+      setTimeout(() => {
+        setShowCoinSuccess(false);
+        startScanProcess(pendingScanParams.url, pendingScanParams.platformId);
+      }, 2500);
+      
     } catch (err) {
       setIsScanning(false);
     }
@@ -563,6 +572,9 @@ const Index = () => {
         coinCost={currentScanCost}
         userBalance={balance}
       />
+
+      {/* Success Overlay */}
+      <CoinSuccessAnimation isVisible={showCoinSuccess} />
     </SidebarProvider>
   );
 };

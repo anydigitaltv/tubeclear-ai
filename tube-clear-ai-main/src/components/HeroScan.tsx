@@ -275,10 +275,6 @@ const HeroScan = ({ onScan, isScanning, selectedPlatform = "youtube", onPlatform
               </div>
             )}
           </form>
-
-          <p className="text-xs text-muted-foreground">
-            🎁 All Scans Are Completely Free - No Coins Required!
-          </p>
         </div>
       </div>
     </section>
