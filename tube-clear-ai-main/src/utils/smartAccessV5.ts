@@ -48,17 +48,13 @@ export const calculateSmartPricing = (durationSeconds: number): PricingResult =>
   const multiplier = isVPN ? 2.5 : 1;
   const finalCost = Math.ceil(baseCost * multiplier);
 
-  // Check 24hr cache
-  const cacheKey = `tubeclear_cache_check`;
-  const isCached = false; // Will be checked separately with URL
-
   return {
     tier: isVPN ? "Tier 1 / VPN" : "Standard",
     multiplier,
     baseCost,
     finalCost,
     isVPN,
-    isCached,
+    isCached: false,
     isOverLimit: false,
   };
 };
