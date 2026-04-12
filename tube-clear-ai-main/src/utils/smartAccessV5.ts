@@ -44,34 +44,18 @@ export const calculateSmartPricing = (durationSeconds: number): PricingResult =>
   }
 
   // Detect VPN/Tier 1 location
-  const isVPN = detectTier1Location();
-  const multiplier = isVPN ? 2.5 : 1;
+  const multiplier = 1; // Default multiplier
   const finalCost = Math.ceil(baseCost * multiplier);
 
   return {
-    tier: isVPN ? "Tier 1 / VPN" : "Standard",
+    tier: "Standard",
     multiplier,
     baseCost,
     finalCost,
-    isVPN,
+    isVPN: false,
     isCached: false,
     isOverLimit: false,
   };
-};
-
-/**
- * Detect if user is in Tier 1 location (US/UK) or using VPN
- * In production, use IP geolocation API
- */
-const detectTier1Location = (): boolean => {
-  try {
-    // Check timezone offset as heuristic
-    const timezoneOffset = new Date().getTimezoneOffset();
-    // US: -300 to -600, UK: 0
-    return timezoneOffset >= -600 && timezoneOffset <= 0;
-  } catch {
-    return false;
-  }
 };
 
 /**
@@ -173,6 +157,7 @@ export const processCoinTransaction = async (
  * Apply 360p optimization for long videos
  */
 export const apply360pOptimization = (durationSeconds: number): boolean => {
-  // Force 360p for videos over 30 minutes
-  return durationSeconds > 1800;
+  // Enforce 360p for all scans to maximize token efficiency as requested
+  console.info("⚡ Applying 360p optimization for token efficiency");
+  return true;
 };

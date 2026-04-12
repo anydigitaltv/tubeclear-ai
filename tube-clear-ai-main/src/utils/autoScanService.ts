@@ -8,6 +8,12 @@ export interface ScanResult {
   issues: string[];
   scannedAt: string;
   scanType: "pre-scan" | "deep-scan";
+  // Detailed report data for PDFs and Dashboard
+  videoTitle?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  monetizationVerdict?: "GREEN" | "YELLOW" | "RED";
+  fixRoadmap?: string[];
 }
 
 // Policy keywords for pattern matching (simplified version)
@@ -84,6 +90,12 @@ export const autoScanVideo = async (video: ChannelVideo): Promise<ScanResult> =>
     issues,
     scannedAt: new Date().toISOString(),
     scanType: "pre-scan"
+    videoTitle: video.title,
+    videoUrl: video.videoUrl,
+    thumbnailUrl: video.thumbnail,
+    // Pre-scan verdict based on keyword risk
+    monetizationVerdict: riskScore < 30 ? "GREEN" : riskScore < 70 ? "YELLOW" : "RED",
+    fixRoadmap: issues.length > 0 ? ["Review detected policy keywords", "Check metadata for clickbait"] : ["Content appears safe for monetization"]
   };
 };
 

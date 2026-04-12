@@ -33,6 +33,8 @@ export interface PolicyViolation {
   description: string;
   platformIds: string[];
   recommendedAction: string;
+  fixRoadmap?: string[];
+  monetizationImpact?: 'full' | 'limited' | 'none';
 }
 
 // Platform-specific frame analysis requirements
@@ -50,7 +52,10 @@ export const getPlatformFrameRequirements = (platformId: string): FrameAnalysisC
         'branded_content_badges',
         'kids_safety_content',
         'adult_content',
-        'violence_graphic'
+        'violence_graphic',
+        'reused_content',
+        'ad_suitability_check',
+        'misleading_metadata'
       ]
     },
     tiktok: {
@@ -64,7 +69,10 @@ export const getPlatformFrameRequirements = (platformId: string): FrameAnalysisC
         'qr_code_violation',
         'community_guidelines',
         'branded_content_toggle',
-        'dangerous_acts'
+        'dangerous_acts',
+        'unoriginal_content_detection',
+        'ai_generated_disclosure',
+        'engagement_bait'
       ]
     },
     instagram: {
@@ -126,7 +134,8 @@ export interface FrameAnalysisConfig {
 export const generateFrameAnalysisPrompt = (
   platformId: string,
   frameData: string,
-  timestamp: number
+  timestamp: number,
+  isLowRes: boolean = true
 ): string => {
   const config = getPlatformFrameRequirements(platformId);
   const formatTime = (seconds: number): string => {
@@ -135,7 +144,7 @@ export const generateFrameAnalysisPrompt = (
     return `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
   };
   
-  return `Analyze this video frame at ${formatTime(timestamp)} for ${platformId.toUpperCase()} platform compliance.
+  return `Act as a senior ${platformId.toUpperCase()} Compliance Auditor. Analyze this ${isLowRes ? '360p optimized' : 'high-res'} video frame at ${formatTime(timestamp)}.
   
 FRAME DATA: ${frameData}
 
@@ -155,12 +164,15 @@ IDENTIFY:
 4. Copyright watermarks or logos
 5. QR codes or external links
 6. Policy-violating imagery
+7. Engagement bait or artificial engagement signals
 
 For each violation found:
 - Specify exact timestamp: ${formatTime(timestamp)}
 - Cite specific ${platformId} policy
 - Rate severity (low/medium/high/critical)
 - Recommend fix action
+- Provide a step-by-step FIX ROADMAP (Actionable steps)
+- Determine Monetization Verdict: (Green: Full / Yellow: Limited / Red: Blocked)
 
 Return structured JSON with detected elements and violations.`;
 };

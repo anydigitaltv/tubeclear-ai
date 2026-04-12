@@ -11,6 +11,7 @@ export interface AuditSaveData {
   overall_risk: number;
   result_json?: any;
   user_id?: string;
+  fix_roadmap?: string[];
 }
 
 /**

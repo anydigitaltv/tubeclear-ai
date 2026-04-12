@@ -56,29 +56,13 @@ const generateVideoUrl = (platformId: PlatformId, videoId: string, channelUrl: s
 
 /**
  * Fetch channel videos from connected platform
- * 
- * PRODUCTION READY: This function now returns empty array by default.
- * To enable real video fetching, integrate platform APIs:
- * 
- * YouTube: YouTube Data API v3 (channels.list + search.list)
- * TikTok: TikTok API for Business
- * Instagram: Instagram Graph API
- * Facebook: Facebook Graph API  
- * Dailymotion: Dailymotion API
- * 
- * @param platformId - Platform identifier
- * @param channelUrl - Channel URL or ID
- * @returns Array of ChannelVideo (empty until real API integration)
  */
 export const fetchChannelVideos = async (
   platformId: PlatformId,
   channelUrl: string
 ): Promise<ChannelVideo[]> => {
-  console.log(`📡 Fetching videos from ${platformId}: ${channelUrl}`);
+  console.info(`📡 Requesting videos from ${platformId}: ${channelUrl}`);
   
   // RETURN EMPTY ARRAY - No fake data
-  console.warn(`⚠️ No real API integration for ${platformId}. Returning empty array.`);
-  console.warn(`📝 To enable video fetching, integrate ${platformId} API in channelVideoFetcher.ts`);
-  
   return [];
 };
