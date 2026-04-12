@@ -120,6 +120,9 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     console.log('🚀 Starting video sync and auto-scan...');
     
+    // Clear old videos before fetching new ones
+    setVideos([]);
+    
     const connectedPlatforms = platforms.filter(p => p.connected);
     const allChannelVideos: Array<ChannelVideo & { riskScore?: number; scanResult?: ScanResult }> = [];
 
@@ -193,7 +196,19 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
   // Auto-sync when platforms change
   useEffect(() => {
     const connectedPlatforms = platforms.filter(p => p.connected);
+    
+    // Clear videos if no platforms connected
+    if (connectedPlatforms.length === 0 && videos.length > 0) {
+      console.log('🗑️ No platforms connected, clearing videos');
+      setVideos([]);
+      setLastSynced(null);
+      localStorage.removeItem(VIDEO_SYNC_KEY);
+      return;
+    }
+    
+    // Trigger sync only if we have connected platforms and no videos loaded yet
     if (connectedPlatforms.length > 0 && videos.length === 0) {
+      console.log('🔄 Platform connected, triggering initial video sync...');
       refreshVideos();
     }
   }, [platforms, videos.length, refreshVideos]);
@@ -201,7 +216,10 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
   // Listen for platform connection events
   useEffect(() => {
     const handlePlatformConnected = () => {
-      console.log('🔄 Platform connected event received, triggering video sync...');
+      console.log('🔄 Platform connected event received, clearing old videos and triggering sync...');
+      // Clear old videos immediately
+      setVideos([]);
+      // Then trigger fresh sync
       refreshVideos();
     };
 
