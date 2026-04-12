@@ -10,6 +10,7 @@ export interface PolicyRule {
   severity: "low" | "medium" | "high" | "critical";
   effectiveDate: string;
   description: string;
+  urduDescription?: string;
   violationTimestamp?: number; // Exact seconds in video
 }
 

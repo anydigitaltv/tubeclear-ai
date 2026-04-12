@@ -14,6 +14,7 @@ export interface ViolationWarning {
   policyId: string;
   policyTitle: string;
   description: string;
+  urduDescription?: string;
 }
 
 interface PolicySyncContextType {
@@ -79,6 +80,7 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
           policyId: policy.id,
           policyTitle: policy.title,
           description: `This video may violate the "${policy.title}" policy. Keywords matched: ${policy.keywords.join(", ")}`,
+          urduDescription: policy.urduDescription || "Is video mein nayi policy ki khilaf-warzi ho sakti hai.",
         });
       }
     });

@@ -7,6 +7,7 @@ export interface LivePolicy {
   category: "content" | "metadata" | "thumbnail" | "ai_disclosure" | "monetization";
   title: string;
   description: string;
+  urduDescription?: string;
   keywords: string[];
   policyUrl: string; // Direct link to official policy page
   effectiveDate: string;
@@ -136,6 +137,7 @@ export const PolicyWatcherProvider = ({ children }: { children: ReactNode }) => 
           category: "ai_disclosure",
           title: "AI-Generated Content Disclosure Requirement",
           description: "All AI-generated or significantly altered content must be clearly labeled with 'Altered Content' disclosure",
+          urduDescription: "Tamam AI se bana hua content 'Altered Content' label ke sath upload karna lazmi hai.",
           keywords: ["ai generated", "ai created", "synthetic media", "deepfake", "altered content"],
           policyUrl: `${PLATFORM_POLICY_URLS[platformId]}#ai-disclosure`,
           effectiveDate: "latest-01-01",
@@ -148,6 +150,7 @@ export const PolicyWatcherProvider = ({ children }: { children: ReactNode }) => 
           category: "metadata",
           title: "Metadata Accuracy Standards",
           description: "Titles, descriptions, and tags must accurately represent video content without misleading clickbait",
+          urduDescription: "Video ka Title aur Description bilkul sahi hona chahiye, clickbait se parhez karein.",
           keywords: ["clickbait", "misleading title", "false claims", "spam tags", "keyword stuffing"],
           policyUrl: PLATFORM_POLICY_URLS[platformId],
           effectiveDate: "latest-02-15",
@@ -160,6 +163,7 @@ export const PolicyWatcherProvider = ({ children }: { children: ReactNode }) => 
           category: "thumbnail",
           title: "Thumbnail Authenticity Requirements",
           description: "Thumbnails must not be misleading or use deceptive imagery",
+          urduDescription: "Thumbnail mein dhoka dahi ya ghalat tasaveer istemal karna mana hai.",
           keywords: ["misleading thumbnail", "fake thumbnail", "shocking imagery", "deceptive preview"],
           policyUrl: `${PLATFORM_POLICY_URLS[platformId]}#thumbnails`,
           effectiveDate: "latest-03-01",
