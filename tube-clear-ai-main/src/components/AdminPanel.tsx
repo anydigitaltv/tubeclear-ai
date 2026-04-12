@@ -228,12 +228,21 @@ const AdminPanel = () => {
 
   const handleUpdateCoins = async (userId: string, currentCoins: number, amount: number) => {
     try {
+      // 1. Update Profile Balance
       const { error } = await supabase
         .from('profiles')
         .update({ coins: currentCoins + amount })
         .eq('id', userId);
 
       if (error) throw error;
+
+      // 2. NEW: Record Transaction in Analytics Ledger
+      await supabase.from("coin_transactions").insert({
+        user_id: userId,
+        amount: amount,
+        type: "admin_bonus",
+        description: `Admin manual addition: +${amount} coins`
+      });
       
       toast.success(`Mubarak! User ko ${amount} coins de diye gaye.`);
       
