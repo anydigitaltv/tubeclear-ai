@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff } from "lucide-react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,7 @@ const AdminPanel = () => {
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [userFilter, setUserFilter] = useState<"all" | "active" | "blocked">("all");
 
   // User History State
   const [selectedUserHistory, setSelectedUserHistory] = useState<any[]>([]);
@@ -165,24 +166,43 @@ const AdminPanel = () => {
   };
 
   const handleSearchUser = async () => {
-    if (!userSearchQuery.trim()) return;
     setIsSearching(true);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`email.ilike.%${userSearchQuery}%,full_name.ilike.%${userSearchQuery}%,id.eq.${userSearchQuery}`)
-        .limit(10);
+      let query = supabase.from('profiles').select('*');
+      
+      // Apply search term if present
+      if (userSearchQuery.trim()) {
+        query = query.or(`email.ilike.%${userSearchQuery}%,full_name.ilike.%${userSearchQuery}%,id.eq.${userSearchQuery}`);
+      }
+      
+      // Apply Block/Active filters
+      if (userFilter === "active") {
+        query = query.eq('is_blocked', false);
+      } else if (userFilter === "blocked") {
+        query = query.eq('is_blocked', true);
+      }
+
+      const { data, error } = await query.limit(20);
 
       if (error) throw error;
       setSearchResults(data || []);
-      if (data?.length === 0) toast.info("Bhai, is email ka koi user nahi mila.");
+      
+      if (data?.length === 0) {
+        toast.info(userSearchQuery ? "Bhai, koi user nahi mila." : `Abhi koi ${userFilter} user nahi hai.`);
+      }
     } catch (err) {
       toast.error("Search fail ho gayi!");
     } finally {
       setIsSearching(false);
     }
   };
+
+  // Re-search when filter changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      handleSearchUser();
+    }
+  }, [userFilter]);
 
   const handleUpdateCoins = async (userId: string, currentCoins: number, amount: number) => {
     try {
@@ -703,7 +723,7 @@ const AdminPanel = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex gap-2">
+              <div className="flex flex-col md:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input 
@@ -715,9 +735,28 @@ const AdminPanel = () => {
                     onKeyDown={(e) => e.key === "Enter" && handleSearchUser()}
                   />
                 </div>
-                <Button onClick={handleSearchUser} disabled={isSearching}>
-                  {isSearching ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Search"}
-                </Button>
+                <div className="flex gap-2">
+                  <div className="flex bg-secondary/50 p-1 rounded-lg border border-border/50">
+                    {(["all", "active", "blocked"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setUserFilter(f)}
+                        className={cn(
+                          "px-3 py-1 rounded-md text-[10px] font-bold transition-all capitalize whitespace-nowrap",
+                          userFilter === f 
+                            ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                            : "text-muted-foreground hover:text-white"
+                        )}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                  <Button onClick={handleSearchUser} disabled={isSearching} className="gap-2">
+                    {isSearching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    Search
+                  </Button>
+                </div>
               </div>
 
               <ScrollArea className="h-[400px]">
