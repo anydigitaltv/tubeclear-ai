@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAIDoctor, type PolicyViolation, type AdminAlert } from "@/contexts/AIDoctorContext";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,11 +33,22 @@ const AdminPanel = () => {
   const [refundAmount, setRefundAmount] = useState(10);
   const [refundReason, setRefundReason] = useState("");
   const [isProcessingRefund, setIsProcessingRefund] = useState(false);
+  const [isSafeMode, setIsSafeMode] = useState(false);
 
   // User Search State
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // User History State
+  const [selectedUserHistory, setSelectedUserHistory] = useState<any[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [targetUser, setTargetUser] = useState<any>(null);
+
+  // System Logs State
+  const [systemLogs, setSystemLogs] = useState<any[]>([]);
+  const [revenueStats, setRevenueStats] = useState({ earned: 0, spent: 0, tx: 0 });
 
   const activeViolations = violations.filter((v) => v.status === "active");
   const reviewedViolations = violations.filter((v) => v.status === "reviewed" || v.status === "dismissed");
@@ -58,6 +70,23 @@ const AdminPanel = () => {
     });
     setIsRefreshing(false);
   };
+
+  // Fetch Stats on load
+  useEffect(() => {
+    if (isLoggedIn) {
+      const fetchStats = async () => {
+        const { data } = await supabase.from('coin_transactions').select('amount');
+        if (data) {
+          const earned = data.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+          const spent = data.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+          setRevenueStats({ earned, spent, tx: data.length });
+        }
+      };
+      fetchStats();
+      // Mock some live logs
+      setSystemLogs([{ id: 1, event: "Admin logged in", time: new Date().toLocaleTimeString() }]);
+    }
+  }, [isLoggedIn]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,6 +185,44 @@ const AdminPanel = () => {
     }
   };
 
+  const handleToggleBlock = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_blocked: !currentStatus })
+        .eq('id', userId);
+
+      if (error) throw error;
+      
+      toast.success(currentStatus ? "User unblocked!" : "User blocked successfully!");
+      setSearchResults(prev => prev.map(u => 
+        u.id === userId ? { ...u, is_blocked: !currentStatus } : u
+      ));
+    } catch (err) {
+      toast.error("Action failed!");
+    }
+  };
+
+  const handleViewUserHistory = async (user: any) => {
+    setTargetUser(user);
+    setIsHistoryLoading(true);
+    setShowHistoryDialog(true);
+    try {
+      const { data, error } = await supabase
+        .from('audit_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSelectedUserHistory(data || []);
+    } catch (err) {
+      toast.error("User history fetch failed!");
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
   // Render Login Screen if not authenticated
   if (!isLoggedIn) {
     return (
@@ -177,7 +244,7 @@ const AdminPanel = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-secondary/50 border border-border/50 rounded-lg h-12 px-4 focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="anydigital"
+                  placeholder="Username"
                 />
               </div>
               <div className="space-y-2">
@@ -212,10 +279,21 @@ const AdminPanel = () => {
             <p className="text-sm text-muted-foreground">Review and manage auto-disabled features</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleTestAlert} disabled={isRefreshing}>
-          <Bell className="h-4 w-4 mr-2" />
-          Test Alert
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border/50">
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">Safe Mode</span>
+            <button 
+              onClick={() => setIsSafeMode(!isSafeMode)}
+              className={cn("w-8 h-4 rounded-full transition-all relative", isSafeMode ? "bg-green-500" : "bg-slate-700")}
+            >
+              <div className={cn("absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all", isSafeMode ? "left-4.5" : "left-0.5")} />
+            </button>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleTestAlert} disabled={isRefreshing}>
+            <Bell className="h-4 w-4 mr-2" />
+            Test Alert
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -233,15 +311,15 @@ const AdminPanel = () => {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-border/20">
+        <Card className="glass-card border-green-500/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                <X className="h-5 w-5 text-orange-500" />
+              <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <Coins className="h-5 w-5 text-green-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{disabledFeatures.length}</p>
-                <p className="text-xs text-muted-foreground">Disabled Features</p>
+                <p className="text-2xl font-bold">{revenueStats.earned}</p>
+                <p className="text-xs text-muted-foreground">Total Coins Sold</p>
               </div>
             </div>
           </CardContent>
@@ -408,6 +486,30 @@ const AdminPanel = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="logs" className="mt-4">
+          <Card className="glass-card border-border/20">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Zap className="h-5 w-5 text-yellow-400" />
+                Live System Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-2">
+                  {systemLogs.map((log, i) => (
+                    <div key={i} className="p-2 rounded bg-secondary/20 border border-border/10 flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">[{log.time}]</span>
+                      <span className="font-mono text-white flex-1 ml-4">{log.event}</span>
+                      <Badge variant="outline" className="text-[10px]">INFO</Badge>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="users" className="mt-4">
           <Card className="glass-card border-primary/20">
             <CardHeader>
@@ -443,6 +545,9 @@ const AdminPanel = () => {
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-primary" />
                             <span className="font-bold">{u.full_name || 'No Name'}</span>
+                            {u.is_blocked && (
+                              <Badge variant="destructive" className="text-[9px] h-4">BLOCKED</Badge>
+                            )}
                             <Badge variant="outline" className="text-[10px]">{u.id.slice(0, 8)}</Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">{u.email}</p>
@@ -471,6 +576,23 @@ const AdminPanel = () => {
                               +500
                             </Button>
                           </div>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className={cn("mt-1 text-xs gap-1", u.is_blocked ? "text-green-500" : "text-red-500")}
+                            onClick={() => handleToggleBlock(u.id, u.is_blocked)}
+                          >
+                            {u.is_blocked ? <ShieldCheck className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
+                            {u.is_blocked ? "Unblock" : "Block User"}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="mt-1 text-xs gap-1 hover:bg-primary/10 text-primary"
+                            onClick={() => handleViewUserHistory(u)}
+                          >
+                            <FileText className="h-3 w-3" /> History
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -598,6 +720,60 @@ const AdminPanel = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* User History Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col bg-slate-900 border-slate-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />
+              Scan History: {targetUser?.full_name || targetUser?.email}
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Showing total {selectedUserHistory.length} scan records
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden mt-4">
+            {isHistoryLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : selectedUserHistory.length === 0 ? (
+              <div className="text-center py-20 text-slate-500">
+                No scan records found for this user.
+              </div>
+            ) : (
+              <ScrollArea className="h-full pr-4">
+                <div className="space-y-3">
+                  {selectedUserHistory.map((scan) => (
+                    <div key={scan.id} className="p-3 rounded-lg bg-secondary/30 border border-border/20 flex justify-between items-center">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-white line-clamp-1">{scan.video_title || 'Untitled'}</p>
+                        <p className="text-[10px] text-muted-foreground truncate max-w-[400px]">{scan.video_url}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px] uppercase">{scan.platform}</Badge>
+                          <span className="text-[10px] text-muted-foreground">{new Date(scan.created_at).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge className={cn(
+                          "text-xs font-bold",
+                          scan.overall_risk < 30 ? "bg-green-500/20 text-green-400" :
+                          scan.overall_risk < 70 ? "bg-yellow-500/20 text-yellow-400" :
+                          "bg-red-500/20 text-red-400"
+                        )}>
+                          Risk: {scan.overall_risk}%
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
