@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { useDynamicCompliance } from "@/contexts/DynamicComplianceContext";
 
 export interface PolicyViolation {
   id: string;
@@ -45,6 +47,9 @@ const ALERTS_KEY = "tubeclear_admin_alerts";
 const DISABLED_KEY = "tubeclear_disabled_features";
 
 export const AIDoctorProvider = ({ children }: { children: ReactNode }) => {
+  const { addNotification, updateFeatureStatus } = useNotifications();
+  const { removeFeature } = useDynamicCompliance();
+
   const [violations, setViolations] = useState<PolicyViolation[]>(() => {
     try {
       const stored = localStorage.getItem(VIOLATIONS_KEY);
@@ -113,6 +118,19 @@ export const AIDoctorProvider = ({ children }: { children: ReactNode }) => {
     };
 
     saveViolations([violation, ...violations]);
+
+    // 1. Auto-Remove from Privacy Policy & Terms
+    removeFeature(feature);
+
+    // 2. Update System Feature Status
+    updateFeatureStatus(feature, "removed", reason);
+
+    // 3. Push Notification to User
+    addNotification({
+      type: "error",
+      title: "Feature Temporarily Removed",
+      message: `Bhai, safety policies ki wajah se "${feature}" ko temporarily hata diya gaya hai.`,
+    });
 
     sendAdminAlert({
       type: "feature_disabled",

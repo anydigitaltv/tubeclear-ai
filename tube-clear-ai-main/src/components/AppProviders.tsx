@@ -56,8 +56,8 @@ export const AppProviders = ({ children }: { children: ReactNode }) => {
                           <PolicyRulesProvider>
                             <GhostGuardProvider>
                               <ContentChangeTrackerProvider>
-                                <DynamicComplianceProvider>
-                                  <AIDoctorProvider>
+                                <AIDoctorProvider>
+                                  <DynamicComplianceProvider>
                                     <GuestModeProvider>
                                       <EncryptionProvider>
                                         <PaymentProvider>

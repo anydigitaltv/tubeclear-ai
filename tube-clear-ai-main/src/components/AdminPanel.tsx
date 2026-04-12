@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone } from "lucide-react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -127,9 +127,10 @@ const AdminPanel = () => {
       </div>
 
       <Tabs defaultValue="violations" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="violations">Violations</TabsTrigger>
-          <TabsTrigger value="features">Disabled Features</TabsTrigger>
+          <TabsTrigger value="removed">Removed Features</TabsTrigger>
+          <TabsTrigger value="features">Active Checks</TabsTrigger>
           <TabsTrigger value="alerts">Alert History</TabsTrigger>
         </TabsList>
 
@@ -155,6 +156,53 @@ const AdminPanel = () => {
                         getSeverityColor={getSeverityColor}
                       />
                     ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="removed" className="mt-4">
+          <Card className="glass-card border-red-500/20">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-red-400">
+                <Ban className="h-5 w-5" />
+                Policy Removal Log (Store Compliance)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                {violations.filter(v => v.status === "active" || v.status === "disabled").length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Check className="h-12 w-12 mx-auto mb-2 text-green-500 opacity-50" />
+                    <p>No features currently removed. All systems compliant.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {violations
+                      .filter(v => v.status === "active" || v.status === "disabled")
+                      .map((v) => (
+                        <div key={v.id} className="p-4 rounded-lg bg-red-500/5 border border-red-500/20">
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                              <h4 className="font-bold text-red-400 uppercase text-xs tracking-wider">{v.feature}</h4>
+                              <p className="text-sm text-white font-medium">{v.rule}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="outline" className="text-[10px] bg-red-500/10 border-red-500/30 text-red-400">
+                                  AUTO-REMOVED: {new Date(v.detectedAt).toLocaleDateString()}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Info className="h-3 w-3" /> Store Policy Enforcement
+                                </span>
+                              </div>
+                            </div>
+                            <Button size="sm" variant="ghost" className="text-xs hover:bg-red-500/10 text-red-400" onClick={() => handleReview(v.id, "dismiss")}>
+                              Re-Evaluate
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 )}
               </ScrollArea>
