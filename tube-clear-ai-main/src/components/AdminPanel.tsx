@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter, TrendingDown } from "lucide-react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter, TrendingDown, Terminal, Bot, Key, DatabaseZap, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePayment } from "@/contexts/PaymentContext";
+import { useAIEngines, type EngineId } from "@/contexts/AIEngineContext";
 
 const AdminPanel = () => {
   const {
@@ -22,6 +23,7 @@ const AdminPanel = () => {
     sendAdminAlert,
   } = useAIDoctor();
   const { paymentRecords } = usePayment();
+  const { getActiveKeyForScan } = useAIEngines();
 
   // Auth State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -102,12 +104,66 @@ const AdminPanel = () => {
         if (ips) {
           setIpBlacklist(ips);
         }
+
+        // Fetch System Keys from Vault
+        fetchSystemKeys();
       };
       fetchStats();
       // Mock some live logs
       setSystemLogs([{ id: 1, event: "Admin logged in", time: new Date().toLocaleTimeString() }]);
     }
   }, [isLoggedIn]);
+
+  const fetchSystemKeys = async () => {
+    const { data } = await supabase.from('system_vault').select('*').order('created_at', { ascending: false });
+    if (data) setSystemKeys(data);
+  };
+
+  const handleAddSystemKey = async () => {
+    if (!newSystemKey.key.trim()) return;
+    try {
+      const { error } = await supabase.from('system_vault').insert({
+        engine_id: newSystemKey.engine,
+        api_key: newSystemKey.key.trim(),
+        is_active: true
+      });
+      if (error) throw error;
+      toast.success("Nayi system key add ho gayi!");
+      setNewSystemKey({ ...newSystemKey, key: "" });
+      setIsAddingSystemKey(false);
+      fetchSystemKeys();
+    } catch (err) {
+      toast.error("Key add nahi ho saki.");
+    }
+  };
+
+  const handleToggleSystemKey = async (id: string, currentStatus: boolean) => {
+    await supabase.from('system_vault').update({ is_active: !currentStatus }).eq('id', id);
+    fetchSystemKeys();
+  };
+
+  const handleDeleteSystemKey = async (id: string) => {
+    if (!confirm("Bhai, kya aap waqai ye master key delete karna chahte hain?")) return;
+    await supabase.from('system_vault').delete().eq('id', id);
+    fetchSystemKeys();
+  };
+
+  const validateSystemKey = async (id: string, engine: string, key: string) => {
+    setIsValidatingSystem(id);
+    try {
+      // Basic validation logic
+      const isValid = (engine === "gemini" && key.startsWith("AIza")) || 
+                      (engine === "groq" && key.startsWith("gsk_"));
+      
+      if (isValid) {
+        toast.success("Key format valid hai! Rotation ke liye tayyar.");
+      } else {
+        toast.error("Ghalat key format detect hua.");
+      }
+    } finally {
+      setIsValidatingSystem(null);
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -290,6 +346,57 @@ const AdminPanel = () => {
       toast.error("Failed to save prices.");
     } finally {
       setIsSavingPrices(false);
+    }
+  };
+
+  const handleTestAI = async () => {
+    if (!playgroundPrompt.trim()) {
+      toast.error("Bhai, pehly koi prompt toh likho!");
+      return;
+    }
+    setIsTestingAI(true);
+    setPlaygroundResponse("AI souch raha hai... 🤖");
+
+    try {
+      const activeKey = getActiveKeyForScan(playgroundEngine === "gemini" ? "visual" : "policy");
+      if (!activeKey) throw new Error(`Aapne ${playgroundEngine} ki koi key add nahi ki hai.`);
+
+      const endpoint = playgroundEngine === "gemini" 
+        ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey.key}`
+        : "https://api.groq.com/openai/v1/chat/completions";
+
+      let response;
+      if (playgroundEngine === "gemini") {
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: playgroundPrompt }] }] })
+        });
+      } else {
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${activeKey.key}`
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-70b-versatile",
+            messages: [{ role: "user", content: playgroundPrompt }]
+          })
+        });
+      }
+
+      const data = await response.json();
+      const text = playgroundEngine === "gemini" 
+        ? data.candidates?.[0]?.content?.parts?.[0]?.text 
+        : data.choices?.[0]?.message?.content;
+
+      setPlaygroundResponse(text || JSON.stringify(data, null, 2));
+    } catch (err: any) {
+      setPlaygroundResponse(`❌ Error: ${err.message}`);
+      toast.error("AI call fail ho gayi!");
+    } finally {
+      setIsTestingAI(false);
     }
   };
 
@@ -621,6 +728,164 @@ const AdminPanel = () => {
                   ))}
                 </div>
               </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="playground" className="mt-4">
+          <Card className="glass-card border-purple-500/20">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-purple-400">
+                <Terminal className="h-5 w-5" />
+                AI Prompt Playground
+              </CardTitle>
+              <CardDescription>
+                Test your master prompts with live AI engines using your stored keys.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 p-1 bg-secondary/30 rounded-lg w-fit border border-border/50">
+                {(["gemini", "groq"] as const).map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => setPlaygroundEngine(e)}
+                    className={cn(
+                      "px-4 py-1.5 rounded-md text-xs font-bold transition-all capitalize",
+                      playgroundEngine === e ? "bg-purple-600 text-white" : "text-muted-foreground hover:text-white"
+                    )}
+                  >
+                    {e === 'gemini' ? 'Gemini 1.5' : 'Groq Llama'}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-bold text-muted-foreground">Test Prompt</label>
+                <textarea 
+                  placeholder="e.g. Analyze this video title for clickbait: 'How to earn 1M dollars fast!'"
+                  className="w-full bg-secondary/50 border border-border/50 rounded-xl p-4 text-sm min-h-[120px] focus:ring-1 focus:ring-purple-500 outline-none"
+                  value={playgroundPrompt}
+                  onChange={(e) => setPlaygroundPrompt(e.target.value)}
+                />
+              </div>
+
+              <Button 
+                onClick={handleTestAI} 
+                disabled={isTestingAI}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold gap-2"
+              >
+                {isTestingAI ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                Run AI Test
+              </Button>
+
+              {playgroundResponse && (
+                <div className="space-y-2 mt-4">
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground">AI Response</label>
+                  <div className="w-full bg-slate-950 border border-purple-500/30 rounded-xl p-4 text-xs font-mono text-purple-200 whitespace-pre-wrap max-h-[300px] overflow-y-auto shadow-inner">
+                    {playgroundResponse}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vault" className="mt-4">
+          <Card className="glass-card border-orange-500/20">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2 text-orange-400">
+                  <DatabaseZap className="h-5 w-5" />
+                  Admin Master Key Pool
+                </CardTitle>
+                <CardDescription>Ye keys rotation ke liye system-wide use hongi.</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setIsAddingSystemKey(true)} className="bg-orange-600 hover:bg-orange-700">
+                <Plus className="h-4 w-4 mr-1" /> Add Master Key
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isAddingSystemKey && (
+                <div className="p-4 rounded-xl bg-secondary/30 border border-orange-500/20 space-y-3 mb-4">
+                  <div className="flex gap-2">
+                    <select 
+                      className="bg-slate-800 border border-border/50 rounded-lg px-3 text-sm outline-none"
+                      value={newSystemKey.engine}
+                      onChange={(e) => setNewSystemKey({...newSystemKey, engine: e.target.value as EngineId})}
+                    >
+                      <option value="gemini">Gemini</option>
+                      <option value="groq">Groq</option>
+                    </select>
+                    <Input 
+                      placeholder="Paste your Master API Key here..."
+                      value={newSystemKey.key}
+                      onChange={(e) => setNewSystemKey({...newSystemKey, key: e.target.value})}
+                      className="flex-1"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setIsAddingSystemKey(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleAddSystemKey}>Save to Vault</Button>
+                  </div>
+                </div>
+              )}
+
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-2">
+                  {systemKeys.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground italic">System vault is empty. Add keys for auto-rotation.</div>
+                  ) : (
+                    systemKeys.map((k) => (
+                      <div key={k.id} className="p-3 rounded-lg bg-secondary/20 border border-border/10 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("w-2 h-2 rounded-full", k.is_active ? "bg-green-500 animate-pulse" : "bg-slate-600")} />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs uppercase">{k.engine_id}</span>
+                              <Badge variant="outline" className="text-[10px] font-mono">
+                                {k.api_key.substring(0, 6)}••••{k.api_key.slice(-4)}
+                              </Badge>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">Added: {new Date(k.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-8 w-8 p-0" 
+                            onClick={() => validateSystemKey(k.id, k.engine_id, k.api_key)}
+                            disabled={isValidatingSystem === k.id}
+                          >
+                            {isValidatingSystem === k.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3 text-blue-400" />}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-8 w-8 p-0" 
+                            onClick={() => handleToggleSystemKey(k.id, k.is_active)}
+                          >
+                            {k.is_active ? <X className="h-3 w-3 text-yellow-500" /> : <Check className="h-3 w-3 text-green-500" />}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-8 w-8 p-0 text-red-500" 
+                            onClick={() => handleDeleteSystemKey(k.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+              <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/20 mt-2">
+                <p className="text-[10px] text-orange-300 leading-tight">
+                  💡 <strong>Rotation Logic:</strong> System pehli active key use karega. Agar quota khatam hua (429 error), toh ye khud hi agli active key par move ho jayega.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

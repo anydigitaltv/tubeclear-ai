@@ -458,7 +458,8 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
           user_id: user.id,
           amount: coins,
           type: "purchase",
-          description: `Payment approved (${method}) - TID: ${input}`
+          description: `Payment approved (${method}) - TID: ${input}`,
+          ip_address: userIP
         });
         
         await refetchBalance();
