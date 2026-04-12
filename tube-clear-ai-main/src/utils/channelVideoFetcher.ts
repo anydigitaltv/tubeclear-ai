@@ -55,7 +55,20 @@ const generateVideoUrl = (platformId: PlatformId, videoId: string, channelUrl: s
 };
 
 /**
+ * Parse ISO 8601 duration (e.g., PT1M30S) to seconds
+ */
+const parseISO8601Duration = (duration: string): number => {
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 0;
+  const hours = parseInt(match[1]) || 0;
+  const minutes = parseInt(match[2]) || 0;
+  const seconds = parseInt(match[3]) || 0;
+  return hours * 3600 + minutes * 60 + seconds;
+};
+
+/**
  * Fetch channel videos from connected platform
+ * Using YouTube Data API v3 for real integration
  */
 export const fetchChannelVideos = async (
   platformId: PlatformId,
@@ -63,6 +76,70 @@ export const fetchChannelVideos = async (
 ): Promise<ChannelVideo[]> => {
   console.info(`📡 Requesting videos from ${platformId}: ${channelUrl}`);
   
-  // RETURN EMPTY ARRAY - No fake data
+  if (platformId === 'youtube') {
+    try {
+      const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+      if (!apiKey) {
+        console.error("❌ YouTube API Key is missing in environment variables!");
+        return [];
+      }
+
+      // 1. Extract Channel ID or Handle
+      let channelId = '';
+      const handleMatch = channelUrl.match(/@([^/?]+)/);
+      
+      if (handleMatch) {
+        // Resolve handle to channel ID
+        const resolveRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=@${handleMatch[1]}&key=${apiKey}`
+        );
+        const resolveData = await resolveRes.json();
+        channelId = resolveData.items?.[0]?.id;
+      } else {
+        // Try to extract direct ID (UC...)
+        const idMatch = channelUrl.match(/channel\/(UC[^/?]+)/);
+        channelId = idMatch ? idMatch[1] : '';
+      }
+
+      if (!channelId) {
+        console.warn("⚠️ Could not extract a valid YouTube Channel ID from URL");
+        return [];
+      }
+
+      // 2. Fetch latest 20 videos using search endpoint
+      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=20&order=date&type=video&key=${apiKey}`;
+      const response = await fetch(searchUrl);
+      const data = await response.json();
+
+      if (!data.items) return [];
+
+      const videoIds = data.items.map((item: any) => item.id.videoId).join(',');
+      
+      // 3. Fetch extra details (views, duration) for professional reporting
+      const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${videoIds}&key=${apiKey}`;
+      const statsRes = await fetch(statsUrl);
+      const statsData = await statsRes.json();
+
+      return data.items.map((item: any) => {
+        const stats = statsData.items?.find((s: any) => s.id === item.id.videoId);
+        
+        return {
+          videoId: item.id.videoId,
+          title: item.snippet.title,
+          thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
+          platformId: 'youtube',
+          publishedAt: item.snippet.publishedAt,
+          durationSeconds: stats ? parseISO8601Duration(stats.contentDetails.duration) : 0, 
+          views: stats ? parseInt(stats.statistics.viewCount) || 0 : 0,
+          channelUrl: channelUrl,
+          videoUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+        };
+      });
+    } catch (error) {
+      console.error("❌ Error fetching YouTube videos:", error);
+      return [];
+    }
+  }
+
   return [];
 };

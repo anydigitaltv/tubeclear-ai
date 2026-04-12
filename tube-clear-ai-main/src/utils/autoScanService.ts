@@ -89,13 +89,18 @@ export const autoScanVideo = async (video: ChannelVideo): Promise<ScanResult> =>
     verdict,
     issues,
     scannedAt: new Date().toISOString(),
-    scanType: "pre-scan"
+    scanType: "pre-scan",
     videoTitle: video.title,
     videoUrl: video.videoUrl,
     thumbnailUrl: video.thumbnail,
     // Pre-scan verdict based on keyword risk
     monetizationVerdict: riskScore < 30 ? "GREEN" : riskScore < 70 ? "YELLOW" : "RED",
-    fixRoadmap: issues.length > 0 ? ["Review detected policy keywords", "Check metadata for clickbait"] : ["Content appears safe for monetization"]
+    fixRoadmap: issues.length > 0 
+      ? [
+          "Title aur tags mein se policy violations (keywords) ko remove karein.",
+          "Description ko advertiser-friendly banayein taake monetization on ho saky."
+        ] 
+      : ["Shabash! Aapka content monetization ke liye bilkul safe hai."]
   };
 };
 
