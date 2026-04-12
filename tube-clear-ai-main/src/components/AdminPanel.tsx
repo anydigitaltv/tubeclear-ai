@@ -51,11 +51,23 @@ const AdminPanel = () => {
   const [revenueStats, setRevenueStats] = useState({ earned: 0, spent: 0, tx: 0 });
 
   // Global Pricing State
-  const [globalPrices, setGlobalPrices] = useState({
-    pre_scan_base: 5,
-    deep_scan_per_min: 12,
-    admin_margin: 1.2,
-    min_scan_cost: 10
+  const [globalPrices, setGlobalPrices] = useState(() => {
+    try {
+      const stored = localStorage.getItem("tubeclear_global_pricing");
+      return stored ? JSON.parse(stored) : {
+        pre_scan_base: 5,
+        deep_scan_per_min: 12,
+        admin_margin: 1.2,
+        min_scan_cost: 10
+      };
+    } catch {
+      return {
+        pre_scan_base: 5,
+        deep_scan_per_min: 12,
+        admin_margin: 1.2,
+        min_scan_cost: 10
+      };
+    }
   });
   const [isSavingPrices, setIsSavingPrices] = useState(false);
 

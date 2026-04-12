@@ -27,6 +27,17 @@ const AI_RATES = {
 export const calculateSmartPricing = (durationSeconds: number): PricingResult => {
   const durationMinutes = Math.ceil(durationSeconds / 60);
   
+  // Admin Panel se saved prices load karne ki koshish karein
+  let rates = AI_RATES;
+  try {
+    const stored = localStorage.getItem("tubeclear_global_pricing");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Agar structure sahi hai toh use karein
+      if (parsed.pre_scan_base !== undefined) rates = parsed;
+    }
+  } catch (e) { /* Fallback to default AI_RATES */ }
+
   // Hard limit check
   if (durationMinutes > 60) {
     return {
@@ -41,15 +52,15 @@ export const calculateSmartPricing = (durationSeconds: number): PricingResult =>
   }
 
   // Base cost tiers
-  // Automatic calculation based on AI_RATES
-  let baseCost = AI_RATES.PRE_SCAN_BASE + (durationMinutes * AI_RATES.DEEP_SCAN_PER_MIN);
+  // Automatic calculation based on dynamic rates
+  let baseCost = rates.pre_scan_base + (durationMinutes * rates.deep_scan_per_min);
   
   // Apply safety margin (Admin profit/buffer)
-  let finalCost = Math.ceil(baseCost * AI_RATES.ADMIN_MARGIN);
+  let finalCost = Math.ceil(baseCost * rates.admin_margin);
 
   // Ensure minimum cost
-  if (finalCost < AI_RATES.MIN_SCAN_COST) {
-    finalCost = AI_RATES.MIN_SCAN_COST;
+  if (finalCost < rates.min_scan_cost) {
+    finalCost = rates.min_scan_cost;
   }
 
   // Detect VPN/Tier 1 location
