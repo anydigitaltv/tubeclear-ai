@@ -517,7 +517,10 @@ const AdminPanel = () => {
                               <Badge className="bg-yellow-500/20 text-yellow-400 text-[10px] h-4">MANUAL REVIEW</Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground">Amount: {record.amount} | Coins: {record.coins} | Method: {record.method}</p>
+                          <div className="flex flex-col gap-0.5">
+                            <p className="text-xs text-muted-foreground">Amount: {record.amount} | Coins: {record.coins} | Method: {record.method}</p>
+                            {record.ipAddress && <p className="text-[10px] text-blue-400 font-mono">IP: {record.ipAddress}</p>}
+                          </div>
                           <p className="text-[10px] text-muted-foreground italic">Detected: {new Date(record.createdAt).toLocaleString()}</p>
                         </div>
                         <div className="flex gap-2">

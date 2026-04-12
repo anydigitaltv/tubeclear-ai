@@ -15,6 +15,7 @@ export interface PaymentRecord {
   transactionId: string;
   status: "pending" | "approved" | "rejected" | "fraud";
   ocrData?: OCRResult;
+  ipAddress?: string;
   autoVerified: boolean;
   createdAt: string;
 }
@@ -227,12 +228,24 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     return { suspicious: false };
   };
 
+  // Fetch User IP Address
+  const fetchUserIP = async (): Promise<string> => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip || '0.0.0.0';
+    } catch {
+      return 'unknown';
+    }
+  };
+
   const processPayment = useCallback(async (
     method: PaymentMethod,
     input: string,
     screenshot?: File
   ): Promise<{ success: boolean; message: string }> => {
     setIsProcessing(true);
+    const userIP = await fetchUserIP();
 
     try {
       // Check if input is a promo code
@@ -250,6 +263,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
             coins: 100,
             transactionId: `ADMIN-BYPASS-${Date.now()}`,
             status: "approved",
+            ipAddress: userIP,
             createdAt: new Date().toISOString(),
           };
 
@@ -278,6 +292,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
             coins: promoCode.coins,
             transactionId: input,
             status: "approved",
+            ipAddress: userIP,
             createdAt: new Date().toISOString(),
           };
 
@@ -384,6 +399,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         transactionId: input,
         status: "approved",
         ocrData,
+        ipAddress: userIP,
         autoVerified: true,
         createdAt: new Date().toISOString(),
       };
