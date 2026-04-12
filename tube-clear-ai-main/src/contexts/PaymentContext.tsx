@@ -216,7 +216,8 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     const repeatingPattern = /^(.)\1+$/.test(tid);
     const sequencePattern = /^(0123456789|1234567890|abcdef)/i.test(tid);
     
-    if (tid.length < 8) return { suspicious: true, reason: "TID too short" };
+    // EasyPaisa/JazzCash TIDs are usually 11-12 digits
+    if (tid.length < 10) return { suspicious: true, reason: "TID format incorrect (too short)" };
     if (repeatingPattern) return { suspicious: true, reason: "Fake repeating pattern" };
     if (sequencePattern) return { suspicious: true, reason: "Common sequence pattern" };
     
@@ -314,6 +315,18 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         ocrData = await performOCR(screenshot);
       }
 
+      // DATE VALIDATION: Ensure screenshot isn't older than 48 hours
+      if (ocrData) {
+        const receiptDate = new Date(ocrData.date);
+        const now = new Date();
+        const diffHours = (now.getTime() - receiptDate.getTime()) / (1000 * 60 * 60);
+        
+        if (diffHours > 48) {
+          addNotification({ type: "error", title: "Receipt Expired", message: "Bhai, ye screenshot purana hai. Please naya upload karein." });
+          return { success: false, message: "Screenshot too old." };
+        }
+      }
+
       // AUTOMATIC SECURITY CHECK
       const securityCheck = isTIDSuspicious(input);
       const ocrReliable = ocrData ? ocrData.confidence > 0.75 : true;
@@ -324,12 +337,18 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
           title: "Payment Under Review",
           message: `Suspicious activity detected: ${securityCheck.reason || "Low OCR confidence"}. Admin will verify manually.`,
         });
-        // Log as pending/fraud for admin review without adding coins
+        return { success: false, message: "Security check failed. Transaction sent for manual review." };
       }
 
-      // Auto-approve if TID is unique and OCR data is valid
+      // SMART PACKAGE MAPPING: Find the correct package based on OCR amount
       const packages = COIN_PACKAGES[method];
-      const coinPackage = packages[0]; // Default to smallest package
+      const extractedAmount = ocrData?.amount || 0;
+      
+      // Find package that matches the OCR amount, fallback to packages[0] if no OCR
+      const coinPackage = extractedAmount > 0 
+        ? (packages.find(p => p.amount === extractedAmount) || packages[0])
+        : packages[0];
+        
       const coins = coinPackage.coins;
 
       await addCoins(coins, "purchase", `Payment via ${method} - TID: ${input}`);
@@ -342,7 +361,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
       const record: PaymentRecord = {
         id: `payment-${Date.now()}`,
         method,
-        amount: ocrData?.amount || coinPackage.amount,
+        amount: extractedAmount || coinPackage.amount,
         coins,
         transactionId: input,
         status: "approved",
