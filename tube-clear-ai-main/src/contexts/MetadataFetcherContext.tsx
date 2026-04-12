@@ -62,14 +62,14 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
       // Platform-specific API calls
       switch (platformId.toLowerCase()) {
         case "youtube": {
-          if (!process.env.VITE_YOUTUBE_DATA_API_KEY) {
-            console.warn('YouTube API key not configured');
-            return null;
-          }
+          // Try API first if available in env
+          const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+          let response;
           
-          const response = await fetch(
-            `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=${process.env.VITE_YOUTUBE_DATA_API_KEY}`
-          );
+          if (apiKey) {
+            response = await fetch(
+              `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=${apiKey}`
+            );
           
           if (!response.ok) {
             throw new Error(`YouTube API error: ${response.status}`);
@@ -92,11 +92,47 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
             publishedAt: snippet.publishedAt,
             fetchedFrom: "native",
           };
+          }
+
+          // NO-KEY FALLBACK: Use oEmbed (Official method, requires no key)
+          console.info("⚡ FREE MODE: Fetching YouTube metadata via oEmbed (No API Key Required)");
+          const oEmbedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(videoUrl)}&format=json`);
+          if (oEmbedRes.ok) {
+            const oEmbedData = await oEmbedRes.json();
+            return {
+              title: oEmbedData.title,
+              description: "Metadata fetched via oEmbed (Keyless Mode)",
+              tags: [],
+              thumbnail: oEmbedData.thumbnail_url,
+              channelName: oEmbedData.author_name,
+              fetchedFrom: "native",
+            };
+          }
+          return null;
         }
         
         case "tiktok": {
-          // Try RapidAPI for TikTok metadata
-          const rapidApiKey = process.env.VITE_RAPIDAPI_KEY;
+          // NO-KEY METHOD: TikTok oEmbed (Official & No Key Required)
+          console.info("⚡ FREE MODE: Fetching TikTok metadata via oEmbed");
+          try {
+            const tiktokOembed = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(videoUrl)}`);
+            if (tiktokOembed.ok) {
+              const data = await tiktokOembed.json();
+              return {
+                title: data.title || "TikTok Video",
+                description: `Author: ${data.author_name}`,
+                tags: ["tiktok"],
+                thumbnail: data.thumbnail_url,
+                channelName: data.author_name,
+                fetchedFrom: "native",
+              };
+            }
+          } catch (e) {
+            console.warn("TikTok oEmbed failed");
+          }
+
+          // Try RapidAPI if configured
+          const rapidApiKey = import.meta.env.VITE_RAPIDAPI_KEY;
           if (rapidApiKey) {
             try {
               const response = await fetch(

@@ -300,7 +300,10 @@ const Index = () => {
       }, isGuest, user?.id);
       
       // Record scan for rate limiting (if using admin API)
-      if (!hasUserApiKey) {
+      const poolHealth = checkPoolHealth();
+      const hasUserApiKey = poolHealth.totalKeys > 0;
+      
+      if (!hasUserApiKey && user?.id) {
         recordScan(user?.id);
         console.log('Scan recorded for rate limiting');
       }

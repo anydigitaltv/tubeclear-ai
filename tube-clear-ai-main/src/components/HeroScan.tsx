@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Search, Youtube, Globe, Loader2, Key } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Youtube, Globe, Loader2, Key, Sparkles, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface HeroScanProps {
   onScan: (url: string, platformId: string) => void;
@@ -16,6 +17,27 @@ const HeroScan = ({ onScan, isScanning, selectedPlatform = "youtube", onPlatform
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [selectedEngine, setSelectedEngine] = useState<"gemini" | "groq" | "grok">("gemini");
+  const [scanStepIndex, setScanStepIndex] = useState(0);
+
+  const scanSteps = [
+    "📡 Fetching video metadata...",
+    "🤖 Initiating AI Audit bot...",
+    "⚖️ Comparing against latest policies...",
+    "🎨 Analyzing visual frames...",
+    "🎵 Scanning audio patterns...",
+    "📊 Finalizing safety report..."
+  ];
+
+  useEffect(() => {
+    if (!isScanning) {
+      setScanStepIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setScanStepIndex((prev) => (prev + 1) % scanSteps.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isScanning]);
 
   const platforms = [
     { id: "youtube", name: "YouTube", color: "text-red-500", bgColor: "hover:bg-red-500/10" },
@@ -93,23 +115,31 @@ const HeroScan = ({ onScan, isScanning, selectedPlatform = "youtube", onPlatform
           </p>
 
           {/* FREE Scan Badge */}
-          <div className="flex justify-center gap-2 flex-wrap">
-            <Badge variant="outline" className="bg-green-500/10 border-green-500 text-green-400 px-4 py-2">
-              🎁 ALL SCANS ARE FREE!
+          <motion.div 
+            initial={{ scale: 0.9 }}
+            animate={{ scale: [0.9, 1.05, 1] }}
+            transition={{ repeat: Infinity, duration: 3 }}
+            className="flex justify-center"
+          >
+            <Badge variant="outline" className="bg-green-500/20 border-green-400 text-green-400 px-6 py-2.5 text-sm font-bold shadow-[0_0_15px_rgba(74,222,128,0.3)] gap-2">
+              <Zap className="w-4 h-4 fill-current" />
+              BILKUL MUFT SCAN - NO COINS NEEDED! 🎁
             </Badge>
-          </div>
+          </motion.div>
 
           <form onSubmit={handleSubmit} className="space-y-3 max-w-2xl mx-auto">
             {/* Success Message - Positive UX */}
-            <div className="glass-card border border-green-500/30 bg-green-500/5 p-3 rounded-lg">
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-green-400 font-medium">✓ Ready to Scan - Free & Instant Analysis</span>
+            {!isScanning && (
+              <div className="glass-card border border-green-500/30 bg-green-500/5 p-3 rounded-lg">
+                <div className="flex items-center gap-2 text-sm">
+                  <ShieldCheck className="w-4 h-4 text-green-500" />
+                  <span className="text-green-400 font-medium">Official Auditor Mode Active</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 ml-6 text-left">
+                  Aapki video ka AI audit bilkul muft hoga. Platform-level scanning start karne ke liye link paste karein.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1 ml-4">
-                Your video will be analyzed by AI for policy compliance and monetization safety
-              </p>
-            </div>
+            )}
 
             {/* Compact Platform Selector - Above URL Input */}
             <div className="glass-card border-border/30 p-3 rounded-lg">
@@ -162,13 +192,43 @@ const HeroScan = ({ onScan, isScanning, selectedPlatform = "youtube", onPlatform
                 className="h-14 px-8 text-base"
               >
                 {isScanning ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Sparkles className="h-5 w-5 animate-spin text-white" />
                 ) : (
                   <Search className="h-5 w-5" />
                 )}
                 {isScanning ? "Scanning..." : "Scan Now"}
               </Button>
             </div>
+
+            {/* DYNAMIC SCANNING STATUS - The "Work Happening" indicator */}
+            <AnimatePresence>
+              {isScanning && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="p-4 rounded-xl bg-primary/10 border border-primary/30 flex flex-col items-center gap-3"
+                >
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                  <motion.p 
+                    key={scanStepIndex}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-sm font-medium text-primary animate-pulse"
+                  >
+                    {scanSteps[scanStepIndex]}
+                  </motion.p>
+                  <div className="w-full bg-secondary/50 h-1.5 rounded-full overflow-hidden">
+                    <motion.div 
+                      className="bg-primary h-full"
+                      initial={{ width: "0%" }}
+                      animate={{ width: "100%" }}
+                      transition={{ duration: 12, ease: "linear" }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* API Key Toggle */}
             <div className="flex items-center justify-center gap-2 mt-2">
