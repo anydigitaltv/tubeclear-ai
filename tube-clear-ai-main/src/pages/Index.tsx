@@ -287,7 +287,7 @@ const Index = () => {
       // Wait for animation to finish before starting scan
       setTimeout(() => {
         setShowCoinSuccess(false);
-        startScanProcess(pendingScanParams.url, pendingScanParams.platformId);
+        startScanProcess(pendingScanParams.url, pendingScanParams.platformId, true);
       }, 2500);
       
     } catch (err) {
@@ -315,7 +315,8 @@ const Index = () => {
       const result: DeepScanResult = await executeHybridScan(
         pendingScanInput,
         selectedAuditConfig?.engine_type,
-        selectedAuditConfig?.system_prompt
+        selectedAuditConfig?.system_prompt,
+        pendingScanInput.useSystemKeys // Use the coin-scan mode if applicable
       );
       
       // Generate why analysis with disclosure verification

@@ -16,6 +16,7 @@ export interface VideoScanInput {
   videoUrl?: string;
   durationSeconds?: number; // Added for dynamic pricing
   requiresDeepScan?: boolean; // Indicates if deep scan is needed
+  useSystemKeys?: boolean; // Force use of Admin keys (Coin-based)
 }
 
 // Platform Moderator Final Verdict
@@ -397,18 +398,23 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Call Admin API (for paid users)
-  const callWithAdminAPI = async (prompt: string): Promise<string | null> => {
-    // In production, this would call your backend with admin API key
+  const callWithAdminAPI = async (prompt: string, engine: EngineId): Promise<string | null> => {
     try {
-      // Simulate API call
-      const response = {
-        verdict: "PASS",
-        reason: "Content meets platform monetization standards (Premium API)",
-        violations: [],
-        passedChecks: ["All premium checks passed", "High-quality content detected"],
-        recommendations: ["Excellent content quality"],
-      };
-      return JSON.stringify(response);
+      // Invoke Supabase Edge Function 'ai-proxy'
+      // Ye function backend par system_vault se keys rotate karega
+      const { data, error } = await supabase.functions.invoke('ai-proxy', {
+        body: { 
+          prompt, 
+          engine, 
+          userId: user?.id,
+          scanMode: "admin_vault" 
+        }
+      });
+
+      if (error) throw error;
+      
+      // Return result as string to match existing parser
+      return JSON.stringify(data);
     } catch (error) {
       console.error("Admin API call failed:", error);
       return null;
@@ -502,10 +508,10 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
     let result: string | null = null;
     let engineUsed: EngineId | null = null;
 
-    // Paid users use Admin API
-    if (isPaidUser()) {
-      result = await callWithAdminAPI(prompt);
-      engineUsed = "openai"; // Admin uses OpenAI
+    // System Keys (Coin usage) or Premium Features use Admin API
+    if (input.useSystemKeys || isPaidUser()) {
+      engineUsed = currentEngine || "gemini";
+      result = await callWithAdminAPI(prompt, engineUsed);
     } else {
       // Free users use BYOK with failover
       if (currentEngine && isEngineReady(currentEngine)) {

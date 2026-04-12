@@ -35,7 +35,7 @@ interface HybridScannerContextType {
   isScanning: boolean;
   currentStage: "metadata" | "pattern" | "deep" | "complete";
   scanProgress: number; // 0-100%
-  executeHybridScan: (input: VideoScanInput, engineType?: string, systemPrompt?: string) => Promise<DeepScanResult>;
+  executeHybridScan: (input: VideoScanInput, engineType?: string, systemPrompt?: string, useSystemKeys?: boolean) => Promise<DeepScanResult>;
   executePreScanOnly: (input: VideoScanInput) => Promise<{ verdict: "PASS" | "FAIL"; violations: string[]; requiresDeepScan: boolean }>;
   getLiveVerificationTimestamp: () => string;
   generateWhyAnalysis: (result: DeepScanResult, metadata?: MetadataScrapeResult, platformId?: string) => WhyAnalysis;
@@ -210,7 +210,12 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
   }, [scanVideo, currentEngine]);
 
   // Main hybrid scan execution
-  const executeHybridScan = useCallback(async (input: VideoScanInput, engineType?: string, systemPrompt?: string): Promise<DeepScanResult> => {
+  const executeHybridScan = useCallback(async (
+    input: VideoScanInput, 
+    engineType?: string, 
+    systemPrompt?: string,
+    useSystemKeys: boolean = false
+  ): Promise<DeepScanResult> => {
     setIsScanning(true);
     setScanProgress(0);
     setCurrentStage("metadata");
@@ -331,7 +336,10 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       console.log(`⚡ Scan complete! Cached: ${optimizationResult.wasCached}, Time saved: ${optimizationResult.timeSaved?.timeSavedSeconds.toFixed(1)}s`);
       
       // Build final scan result
-      const scanResult = await scanVideo(input); // Skip confirmation via context default
+      const scanResult = await scanVideo({
+        ...input,
+        useSystemKeys // Pass through the system keys flag
+      }); 
       if (!scanResult) {
         throw new Error("AI scan failed");
       }
