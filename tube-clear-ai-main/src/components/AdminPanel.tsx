@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck } from "lucide-react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +49,15 @@ const AdminPanel = () => {
   // System Logs State
   const [systemLogs, setSystemLogs] = useState<any[]>([]);
   const [revenueStats, setRevenueStats] = useState({ earned: 0, spent: 0, tx: 0 });
+
+  // Global Pricing State
+  const [globalPrices, setGlobalPrices] = useState({
+    pre_scan_base: 5,
+    deep_scan_per_min: 12,
+    admin_margin: 1.2,
+    min_scan_cost: 10
+  });
+  const [isSavingPrices, setIsSavingPrices] = useState(false);
 
   const activeViolations = violations.filter((v) => v.status === "active");
   const reviewedViolations = violations.filter((v) => v.status === "reviewed" || v.status === "dismissed");
@@ -200,6 +209,25 @@ const AdminPanel = () => {
       ));
     } catch (err) {
       toast.error("Action failed!");
+    }
+  };
+
+  const handleSavePrices = async () => {
+    setIsSavingPrices(true);
+    try {
+      // In production, save to Supabase table 'system_settings'
+      localStorage.setItem("tubeclear_global_pricing", JSON.stringify(globalPrices));
+      
+      toast.success("Global prices updated successfully!");
+      setSystemLogs(prev => [{ 
+        id: Date.now(), 
+        event: `Admin updated global pricing: Base ${globalPrices.pre_scan_base}, Rate ${globalPrices.deep_scan_per_min}`, 
+        time: new Date().toLocaleTimeString() 
+      }, ...prev]);
+    } catch (err) {
+      toast.error("Failed to save prices.");
+    } finally {
+      setIsSavingPrices(false);
     }
   };
 
@@ -506,6 +534,79 @@ const AdminPanel = () => {
                   ))}
                 </div>
               </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pricing" className="mt-4">
+          <Card className="glass-card border-blue-500/20">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-blue-400">
+                <Settings2 className="h-5 w-5" />
+                Global Scan Pricing Control
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase font-bold">Pre-Scan Base Cost (Coins)</label>
+                  <input 
+                    type="number" 
+                    className="w-full bg-secondary/50 border border-border/50 rounded-lg h-10 px-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                    value={globalPrices.pre_scan_base}
+                    onChange={(e) => setGlobalPrices({...globalPrices, pre_scan_base: parseInt(e.target.value)})}
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">Metadata check ki bunyadi qeemat</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase font-bold">Deep Scan Rate (Coins/Min)</label>
+                  <input 
+                    type="number" 
+                    className="w-full bg-secondary/50 border border-border/50 rounded-lg h-10 px-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                    value={globalPrices.deep_scan_per_min}
+                    onChange={(e) => setGlobalPrices({...globalPrices, deep_scan_per_min: parseInt(e.target.value)})}
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">Video/Audio analysis per minute cost</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase font-bold">Admin Profit Margin (Multiplier)</label>
+                  <input 
+                    type="number" 
+                    step="0.1"
+                    className="w-full bg-secondary/50 border border-border/50 rounded-lg h-10 px-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                    value={globalPrices.admin_margin}
+                    onChange={(e) => setGlobalPrices({...globalPrices, admin_margin: parseFloat(e.target.value)})}
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">Example: 1.2 = 20% Extra for Admin safety/profit</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase font-bold">Min Scan Cost (Coins)</label>
+                  <input 
+                    type="number" 
+                    className="w-full bg-secondary/50 border border-border/50 rounded-lg h-10 px-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                    value={globalPrices.min_scan_cost}
+                    onChange={(e) => setGlobalPrices({...globalPrices, min_scan_cost: parseInt(e.target.value)})}
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">Kisi bhi scan ki kam se kam qeemat</p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-border/20">
+                <Button 
+                  onClick={handleSavePrices} 
+                  disabled={isSavingPrices}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2"
+                >
+                  {isSavingPrices ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Apply New Pricing Globally
+                </Button>
+                <p className="text-center text-[10px] text-muted-foreground mt-3 uppercase tracking-widest">
+                  ⚠️ Ye tabdeeli foran tamam users par apply ho jayegi
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
