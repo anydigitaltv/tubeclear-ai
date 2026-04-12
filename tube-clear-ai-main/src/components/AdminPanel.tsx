@@ -46,6 +46,12 @@ const AdminPanel = () => {
   const [playgroundResponse, setPlaygroundResponse] = useState("");
   const [isTestingAI, setIsTestingAI] = useState(false);
 
+  // System Vault State (Admin Master Keys)
+  const [systemKeys, setSystemKeys] = useState<any[]>([]);
+  const [isAddingSystemKey, setIsAddingSystemKey] = useState(false);
+  const [newSystemKey, setNewSystemKey] = useState({ engine: "gemini" as EngineId, key: "" });
+  const [isValidatingSystem, setIsValidatingSystem] = useState<string | null>(null);
+
   // User History State
   const [selectedUserHistory, setSelectedUserHistory] = useState<any[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -92,35 +98,32 @@ const AdminPanel = () => {
     setIsRefreshing(false);
   };
 
-  // Fetch Stats on load
-  useEffect(() => {
-    if (isLoggedIn) {
-      const fetchStats = async () => {
-        const { data } = await supabase.from('coin_transactions').select('amount');
-        if (data) {
-          const earned = data.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-          const spent = data.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
-          setRevenueStats({ earned, spent, tx: data.length });
-        }
-
-        const { data: ips } = await supabase.from('ip_blacklist').select('*').order('last_attempt', { ascending: false });
-        if (ips) {
-          setIpBlacklist(ips);
-        }
-
-        // Fetch System Keys from Vault
-        fetchSystemKeys();
-      };
-      fetchStats();
-      // Mock some live logs
-      setSystemLogs([{ id: 1, event: "Admin logged in", time: new Date().toLocaleTimeString() }]);
-    }
-  }, [isLoggedIn]);
-
   const fetchSystemKeys = async () => {
     const { data } = await supabase.from('system_vault').select('*').order('created_at', { ascending: false });
     if (data) setSystemKeys(data);
   };
+
+  // Fetch Stats on load
+  useEffect(() => {
+    const fetchStats = async () => {
+      const { data } = await supabase.from('coin_transactions').select('amount');
+      if (data) {
+        const earned = data.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+        const spent = data.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        setRevenueStats({ earned, spent, tx: data.length });
+      }
+
+      const { data: ips } = await supabase.from('ip_blacklist').select('*').order('last_attempt', { ascending: false });
+      if (ips) {
+        setIpBlacklist(ips);
+      }
+
+      // Fetch System Keys from Vault
+      fetchSystemKeys();
+    };
+    fetchStats();
+    setSystemLogs([{ id: 1, event: "Admin session active", time: new Date().toLocaleTimeString() }]);
+  }, []);
 
   const handleAddSystemKey = async () => {
     if (!newSystemKey.key.trim()) return;
