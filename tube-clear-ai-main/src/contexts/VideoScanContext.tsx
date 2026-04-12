@@ -40,13 +40,18 @@ export const getFinalVerdict = (riskScore: number, platformId: PlatformId): Fina
 };
 
 export interface ScanResult {
-  riskScore: number;
-  riskLevel: "low" | "medium" | "high" | "critical";
-  finalVerdict: FinalVerdict; // NEW: Platform moderator verdict
-  issues: string[];
-  suggestions: string[];
+  verdict: "PASS" | "FAIL";
+  reason: string;
+  violations: string[];
+  passedChecks: string[];
+  recommendations: string[];
   analyzedAt: string;
   engineUsed: EngineId;
+  platformId: PlatformId;
+  // Video information for reports
+  videoTitle?: string;
+  videoUrl?: string;
+  videoThumbnail?: string;
   thumbnailStatus?: "safe" | "flagged" | "not_scanned" | "unsupported";
   thumbnailIssues?: string[];
   tokensSaved?: number; // Loyalty feature - shows money saved by free scans
@@ -133,26 +138,151 @@ const calculateScanCost = (durationSeconds?: number): { cost: number; warning?: 
 // Engines that support Vision API
 const VISION_SUPPORTED_ENGINES: EngineId[] = ["gemini"];
 
-// Scan prompt for AI analysis
-const SCAN_PROMPT = `You are a YouTube/content policy expert. Analyze the following video metadata for potential monetization risks.
+// Platform-specific scan prompts for 5 platforms
+const SCAN_PROMPTS: Record<PlatformId, string> = {
+  youtube: `You are a YouTube Policy Expert analyzing content for monetization compliance under YouTube Partner Program (YPP) 2026 policies.
 
 VIDEO TITLE: {title}
 VIDEO DESCRIPTION: {description}
 VIDEO TAGS: {tags}
 
-Analyze for:
-1. Policy violations (copyright, community guidelines, advertiser-friendly content)
-2. Misleading content or clickbait
-3. Sensitive topics that may affect monetization
-4. Suggested improvements
+Analyze for YouTube-specific violations:
+1. **Reused/Repetitious Content**: Same format, minimal variation, mass-produced content
+2. **AI-Generated Content**: Undisclosed AI voice, deepfakes, synthetic visuals (Altered Content label mandatory)
+3. **Copyright Issues**: Unlicensed music, reuploaded content, watermark violations
+4. **Advertiser-Friendly Guidelines**: Sensitive topics, profanity, controversial content
+5. **Misleading Metadata**: Clickbait titles, keyword stuffing, deceptive thumbnails
+6. **Kids Safety**: COPPA compliance, child-directed content标记
 
-Respond in JSON format:
+DECISION FORMAT - You MUST respond with PASS or FAIL:
 {
-  "riskScore": <number 0-100>,
-  "riskLevel": "<low|medium|high|critical>",
-  "issues": ["<issue1>", "<issue2>"],
-  "suggestions": ["<suggestion1>", "<suggestion2>"]
-}`;
+  "verdict": "PASS" | "FAIL",
+  "reason": "Clear explanation of why content passed or failed",
+  "violations": ["Specific policy violation 1", "violation 2"],
+  "passedChecks": ["What policies were satisfied"],
+  "recommendations": ["Actionable steps if FAIL"]
+}
+
+IMPORTANT: 
+- PASS = Content meets YouTube monetization standards
+- FAIL = Content violates one or more YouTube policies and risks demonetization
+- Be strict. If ANY major violation exists, verdict must be FAIL.`,
+
+  tiktok: `You are a TikTok Policy Expert analyzing content for Community Guidelines and Creator Fund compliance 2026.
+
+VIDEO TITLE: {title}
+VIDEO DESCRIPTION: {description}
+VIDEO TAGS: {tags}
+
+Analyze for TikTok-specific violations:
+1. **AI-Generated Content Label**: Mandatory disclosure for AI-generated/edited content
+2. **QR Code Violations**: External QR codes redirecting to prohibited platforms
+3. **Music Copyright**: Unlicensed commercial music usage
+4. **Community Guidelines**: Violence, hate speech, dangerous acts, misinformation
+5. **Duet/Stitch Rights**: Content eligibility for remix features
+6. **Short-Form Quality**: Extremely low effort, spam-like content patterns
+
+DECISION FORMAT - You MUST respond with PASS or FAIL:
+{
+  "verdict": "PASS" | "FAIL",
+  "reason": "Clear explanation of why content passed or failed",
+  "violations": ["Specific policy violation 1", "violation 2"],
+  "passedChecks": ["What policies were satisfied"],
+  "recommendations": ["Actionable steps if FAIL"]
+}
+
+IMPORTANT:
+- PASS = Content meets TikTok Community Guidelines and monetization standards
+- FAIL = Content violates TikTok policies and risks removal or demonetization
+- TikTok is stricter on AI disclosure and QR codes - flag immediately if missing`,
+
+  instagram: `You are an Instagram Policy Expert analyzing content for Partner Monetization Policies 2026.
+
+VIDEO TITLE: {title}
+VIDEO DESCRIPTION: {description}
+VIDEO TAGS: {tags}
+
+Analyze for Instagram-specific violations:
+1. **Branded Content Disclosure**: Missing "Paid Partnership" tag for sponsored content
+2. **Reels Monetization**: Content eligibility for Reels Play bonus program
+3. **Music Licensing**: Commercial music rights for Reels/IGTV
+4. **Authentic Engagement**: Buy/fake engagement, follow-for-follow schemes
+5. **Content Authenticity**: Reposted content without transformation, watermark from other apps
+6. **Community Guidelines**: Nudity, violence, hate speech, self-harm content
+
+DECISION FORMAT - You MUST respond with PASS or FAIL:
+{
+  "verdict": "PASS" | "FAIL",
+  "reason": "Clear explanation of why content passed or failed",
+  "violations": ["Specific policy violation 1", "violation 2"],
+  "passedChecks": ["What policies were satisfied"],
+  "recommendations": ["Actionable steps if FAIL"]
+}
+
+IMPORTANT:
+- PASS = Content meets Instagram Partner Monetization Policies
+- FAIL = Content violates Instagram policies and risks monetization restrictions
+- Branded content without disclosure = immediate FAIL`,
+
+  facebook: `You are a Facebook Policy Expert analyzing content for In-Stream Ads and Partner Monetization 2026.
+
+VIDEO TITLE: {title}
+VIDEO DESCRIPTION: {description}
+VIDEO TAGS: {tags}
+
+Analyze for Facebook-specific violations:
+1. **Partner Monetization Policies**: Page authenticity, admin location restrictions
+2. **In-Stream Ads Eligibility**: Video length (3+ minutes), original content requirements
+3. **Content Authenticity**: Repurposed content from other creators without significant value-add
+4. **Limited Originality of Content (LOC)**: Compilations, memes, reactions without commentary
+5. **Community Standards**: Violence, hate speech, misinformation, adult content
+6. **Advertiser-Friendly Content**: Brand safety considerations for in-stream ads
+
+DECISION FORMAT - You MUST respond with PASS or FAIL:
+{
+  "verdict": "PASS" | "FAIL",
+  "reason": "Clear explanation of why content passed or failed",
+  "violations": ["Specific policy violation 1", "violation 2"],
+  "passedChecks": ["What policies were satisfied"],
+  "recommendations": ["Actionable steps if FAIL"]
+}
+
+IMPORTANT:
+- PASS = Content meets Facebook Partner Monetization and In-Stream Ads policies
+- FAIL = Content violates Facebook policies and risks monetization disablement
+- LOC (Limited Originality) is major issue - flag compilations/reposts without commentary`,
+
+  dailymotion: `You are a Dailymotion Policy Expert analyzing content for Partner Program and Premium Monetization 2026.
+
+VIDEO TITLE: {title}
+VIDEO DESCRIPTION: {description}
+VIDEO TAGS: {tags}
+
+Analyze for Dailymotion-specific violations:
+1. **Content Quality Standards**: HD quality, professional production value
+2. **Partner Program Eligibility**: Original content, consistent upload schedule
+3. **Premium Content Requirements**: Exclusive content, premium advertiser standards
+4. **Copyright Compliance**: Licensed music, original footage, proper attributions
+5. **Community Guidelines**: No violence, hate speech, adult content, illegal activities
+6. **Brand Safety**: Advertiser-friendly content suitable for premium placements
+
+DECISION FORMAT - You MUST respond with PASS or FAIL:
+{
+  "verdict": "PASS" | "FAIL",
+  "reason": "Clear explanation of why content passed or failed",
+  "violations": ["Specific policy violation 1", "violation 2"],
+  "passedChecks": ["What policies were satisfied"],
+  "recommendations": ["Actionable steps if FAIL"]
+}
+
+IMPORTANT:
+- PASS = Content meets Dailymotion Partner Program and quality standards
+- FAIL = Content violates Dailymotion policies or quality requirements
+- Dailymotion emphasizes premium quality - flag low-effort or unoriginal content`
+};
+
+// Scan prompt for AI analysis (legacy - keeping for backward compatibility)
+const SCAN_PROMPT = SCAN_PROMPTS.youtube;
 
 // Thumbnail scan prompt for Vision API
 const THUMBNAIL_SCAN_PROMPT = `You are a YouTube/content policy expert. Analyze this video thumbnail for policy violations.
@@ -222,10 +352,11 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
     // In production, each engine would have different API endpoints and formats
     try {
       const response = {
-        riskScore: Math.floor(Math.random() * 100),
-        riskLevel: ["low", "medium", "high", "critical"][Math.floor(Math.random() * 4)] as ScanResult["riskLevel"],
-        issues: ["Potential keyword sensitivity detected", "Description could be more detailed"],
-        suggestions: ["Consider revising title for clarity", "Add more relevant tags"],
+        verdict: "PASS",
+        reason: "Content meets platform monetization standards",
+        violations: [],
+        passedChecks: ["Community guidelines compliant", "No copyright issues detected"],
+        recommendations: ["Continue creating quality content"],
       };
       return JSON.stringify(response);
     } catch (error) {
@@ -271,10 +402,11 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Simulate API call
       const response = {
-        riskScore: Math.floor(Math.random() * 100),
-        riskLevel: ["low", "medium", "high", "critical"][Math.floor(Math.random() * 4)] as ScanResult["riskLevel"],
-        issues: ["Analysis complete using premium API"],
-        suggestions: ["Premium suggestions available"],
+        verdict: "PASS",
+        reason: "Content meets platform monetization standards (Premium API)",
+        violations: [],
+        passedChecks: ["All premium checks passed", "High-quality content detected"],
+        recommendations: ["Excellent content quality"],
       };
       return JSON.stringify(response);
     } catch (error) {
@@ -360,8 +492,9 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
     // ALL SCANS ARE FREE - No payment check needed
     // Payment logic removed - scans are completely free for everyone
 
-    // Build prompt
-    const prompt = SCAN_PROMPT
+    // Build platform-specific prompt
+    const platformPrompt = SCAN_PROMPTS[input.platformId] || SCAN_PROMPTS.youtube;
+    const prompt = platformPrompt
       .replace("{title}", input.title)
       .replace("{description}", input.description)
       .replace("{tags}", input.tags.join(", "));
@@ -404,12 +537,21 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
     const isDeepScan = input.requiresDeepScan;
     const tokensSavedAmount = isDeepScan ? 0.50 : 0.10;
     
+    // Convert to new PASS/FAIL format
     const parsedResult: ScanResult = {
-      ...aiResult,
+      verdict: aiResult.verdict || "FAIL",
+      reason: aiResult.reason || "Analysis complete",
+      violations: aiResult.violations || aiResult.issues || [],
+      passedChecks: aiResult.passedChecks || [],
+      recommendations: aiResult.recommendations || aiResult.suggestions || [],
       analyzedAt: new Date().toISOString(),
-      engineUsed: engineUsed || "openai",
-      finalVerdict: getFinalVerdict(aiResult.riskScore, input.platformId), // Calculate verdict
-      tokensSaved: tokensSavedAmount, // Show user how much money they saved
+      engineUsed: engineUsed || "gemini",
+      platformId: input.platformId,
+      // Video information
+      videoTitle: input.title,
+      videoUrl: input.videoUrl || `https://${input.platformId}.com/${input.videoId}`,
+      videoThumbnail: input.thumbnail,
+      tokensSaved: tokensSavedAmount,
     };
 
     // Scan thumbnail if provided
@@ -418,9 +560,9 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
       parsedResult.thumbnailStatus = thumbnailResult.status;
       parsedResult.thumbnailIssues = thumbnailResult.issues;
       
-      // Add thumbnail issues to main issues if flagged
+      // Add thumbnail issues to violations if flagged
       if (thumbnailResult.status === "flagged" && thumbnailResult.issues.length > 0) {
-        parsedResult.issues = [...parsedResult.issues, ...thumbnailResult.issues.map(i => `Thumbnail: ${i}`)];
+        parsedResult.violations = [...parsedResult.violations, ...thumbnailResult.issues.map(i => `Thumbnail: ${i}`)];
       }
     }
 

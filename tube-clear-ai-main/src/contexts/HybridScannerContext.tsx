@@ -36,7 +36,7 @@ interface HybridScannerContextType {
   currentStage: "metadata" | "pattern" | "deep" | "complete";
   scanProgress: number; // 0-100%
   executeHybridScan: (input: VideoScanInput, engineType?: string, systemPrompt?: string) => Promise<DeepScanResult>;
-  executePreScanOnly: (input: VideoScanInput) => Promise<{ riskScore: number; issues: string[]; requiresDeepScan: boolean }>;
+  executePreScanOnly: (input: VideoScanInput) => Promise<{ verdict: "PASS" | "FAIL"; violations: string[]; requiresDeepScan: boolean }>;
   getLiveVerificationTimestamp: () => string;
   generateWhyAnalysis: (result: DeepScanResult, metadata?: MetadataScrapeResult, platformId?: string) => WhyAnalysis;
   copyReportToClipboard: (report: FullReport) => Promise<boolean>;
@@ -58,6 +58,8 @@ export interface WhyAnalysis {
 
 export interface FullReport {
   videoUrl: string;
+  videoTitle?: string;
+  videoThumbnail?: string;
   verifiedTimestamp: string;
   platform: string;
   overallRisk: number;
@@ -158,15 +160,23 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       
       // Return lightweight result
       return {
-        riskScore: patternResult.riskScore,
-        riskLevel: patternResult.riskScore < 20 ? "low" : "medium",
-        finalVerdict: getFinalVerdict(patternResult.riskScore, input.platformId),
-        issues: patternResult.matchedKeywords.map(k => `Keyword violation: ${k}`),
-        suggestions: ["Content appears compliant with current policies"],
+        verdict: patternResult.cleanStatus ? "PASS" : "FAIL",
+        reason: patternResult.cleanStatus 
+          ? "Content compliant with current policies" 
+          : `Found ${patternResult.matchedKeywords.length} policy violations`,
+        violations: patternResult.matchedKeywords.map(k => `Keyword violation: ${k}`),
+        passedChecks: patternResult.cleanStatus ? ["All policy checks passed"] : [],
+        recommendations: patternResult.cleanStatus 
+          ? ["Continue creating quality content"] 
+          : ["Review and update metadata to comply with policies"],
         analyzedAt: new Date().toISOString(),
         engineUsed: currentEngine || "gemini",
+        platformId: input.platformId,
         requiresDeepScan: false,
         deepScanReason: "Not required - metadata clean",
+        videoTitle: input.title,
+        videoUrl: input.videoUrl,
+        videoThumbnail: input.thumbnail,
       };
     }
     
@@ -223,15 +233,19 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       // If clean and low risk, skip deep scan
       if (patternResult.cleanStatus && patternResult.riskScore < 20) {
         const lightweightResult: DeepScanResult = {
-          riskScore: patternResult.riskScore,
-          riskLevel: "low",
-          finalVerdict: getFinalVerdict(patternResult.riskScore, input.platformId),
-          issues: [],
-          suggestions: ["Content compliant with live policies"],
+          verdict: "PASS",
+          reason: "Content compliant with live policies",
+          violations: [],
+          passedChecks: ["Live policy check passed", "No violations detected"],
+          recommendations: ["Content meets current platform standards"],
           analyzedAt: new Date().toISOString(),
           engineUsed: currentEngine || "gemini",
+          platformId: input.platformId,
           requiresDeepScan: false,
           deepScanReason: "Metadata clean - no deep scan needed",
+          videoTitle: input.title,
+          videoUrl: input.videoUrl,
+          videoThumbnail: input.thumbnail,
         };
         
         setIsScanning(false);
@@ -459,12 +473,12 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
     }
     
     // Metadata analysis
-    if (result.riskScore > 0 && result.riskScore <= 50) {
-      analysis.metadataReason = `Reason: Clickbait keywords detected that violate current metadata standards. Risk Score: ${result.riskScore}/100`;
+    if (result.verdict === "FAIL" && result.violations.length > 0) {
+      analysis.metadataReason = `Reason: ${result.violations.length} policy violation(s) detected that require attention.`;
     }
     
     // Collect policy links with TIMESTAMP ACCURACY
-    result.issues.forEach((issue, index) => {
+    result.violations.forEach((issue, index) => {
       // Find matching policy and add link
       const policyLink = getPolicyUrl(platformId || "youtube");
       if (!analysis.policyLinks.includes(policyLink)) {
@@ -473,7 +487,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       
       // Add violation with exact timestamp (simulated from video duration)
       const estimatedTimestamp = metadata?.extractedAt 
-        ? Math.floor((300 / result.issues.length) * (index + 1)) // Assume 5 min avg
+        ? Math.floor((300 / result.violations.length) * (index + 1)) // Assume 5 min avg
         : undefined;
       
       analysis.exactViolations.push({
@@ -483,13 +497,13 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       });
     });
     
-    // Overall risk reason - ADJUST based on disclosure status
-    if (analysis.disclosureStatus === "verified") {
-      analysis.riskReason = "AI content properly disclosed - compliant with latest Policy.";
+    // Overall risk reason - ADJUST based on verdict
+    if (result.verdict === "PASS") {
+      analysis.riskReason = "Content passed all policy checks - compliant with latest guidelines.";
     } else {
       analysis.riskReason = analysis.aiDetectionReason || 
                            analysis.metadataReason || 
-                           `Overall Risk Assessment: ${result.riskLevel.toUpperCase()}`;
+                           `Content failed policy review: ${result.violations.length} violation(s) detected`;
     }
     
     return analysis;
@@ -498,16 +512,25 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
   // Copy full report to clipboard
   const copyReportToClipboard = useCallback(async (report: FullReport): Promise<boolean> => {
     try {
+      const verdictEmoji = report.overallRisk <= 30 ? "✅" : report.overallRisk <= 60 ? "⚠️" : "❌";
+      const verdictText = report.overallRisk <= 30 ? "PASS" : report.overallRisk <= 60 ? "FLAGGED" : "FAIL";
+      
       const formattedReport = `
 🔍 TUBECLEAR AI - LIVE POLICY SCAN REPORT
 ═══════════════════════════════════════
 
-📹 Video: ${report.videoUrl}
-✅ Verified: ${report.verifiedTimestamp}
-📺 Platform: ${report.platform}
-⚠️ Overall Risk: ${report.overallRisk}/100
+📹 VIDEO INFORMATION
+Title: ${report.videoTitle || 'N/A'}
+URL: ${report.videoUrl}
+Thumbnail: ${report.videoThumbnail || 'Not available'}
+Platform: ${report.platform}
 
-📊 WHY ANALYSIS:
+📊 VERDICT
+${verdictEmoji} ${verdictText}
+Risk Score: ${report.overallRisk}/100
+Verified: ${report.verifiedTimestamp}
+
+📝 ANALYSIS:
 ${report.whyAnalysis.riskReason}
 
 ${report.whyAnalysis.aiDetectionReason ? `🤖 AI DETECTION:\n${report.whyAnalysis.aiDetectionReason}\n` : ''}
@@ -517,7 +540,7 @@ ${report.whyAnalysis.metadataReason ? `📝 METADATA:\n${report.whyAnalysis.meta
 ${report.whyAnalysis.policyLinks.map(link => `• ${link}`).join('\n')}
 
 ❌ EXACT VIOLATIONS:
-${report.whyAnalysis.exactViolations.map(v => `• ${v}`).join('\n')}
+${report.whyAnalysis.exactViolations.map(v => `• ${v.text}${v.timestamp ? ` [${v.timestamp}]` : ''}`).join('\n')}
 
 ───────────────────────────────────────
 Generated by TubeClear AI • ${new Date().toLocaleString()}
@@ -533,7 +556,7 @@ Generated by TubeClear AI • ${new Date().toLocaleString()}
   // NEW: Execute pre-scan only (Stages 1 & 2) without deep scan
   const executePreScanOnly = useCallback(async (
     input: VideoScanInput
-  ): Promise<{ riskScore: number; issues: string[]; requiresDeepScan: boolean }> => {
+  ): Promise<{ verdict: "PASS" | "FAIL"; violations: string[]; requiresDeepScan: boolean }> => {
     setIsScanning(true);
     setScanProgress(0);
     
@@ -548,8 +571,8 @@ Generated by TubeClear AI • ${new Date().toLocaleString()}
       setScanProgress(50); // Show 50% progress after pre-scan
       
       return {
-        riskScore: patternResult.riskScore,
-        issues: patternResult.violations.map(v => v.title),
+        verdict: patternResult.cleanStatus ? "PASS" : "FAIL",
+        violations: patternResult.violations.map(v => v.title),
         requiresDeepScan: !patternResult.cleanStatus || patternResult.riskScore > 20,
       };
     } catch (error) {
