@@ -127,7 +127,7 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
     setIsScanning(true);
     
     try {
-      await checkForUpdates();
+      console.log("🛡️ Policy Guard: checking for updates...");
       console.log("Policy updates detected! Scanning videos...");
 
       // Step 2: Get all videos from IndexedDB
@@ -155,11 +155,16 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
       });
 
       // Step 4: Logic to add new alerts and REMOVE fixed ones
-      const prevViolationIds = new Set(violationWarnings.map(v => `${v.videoId}-${v.policyId}`));
+      let prevViolations: ViolationWarning[] = [];
+      try {
+        const stored = localStorage.getItem("tubeclear_violation_warnings");
+        prevViolations = stored ? JSON.parse(stored) : [];
+      } catch (e) { prevViolations = []; }
+
       const currentViolationIds = new Set(currentViolations.map(v => `${v.videoId}-${v.policyId}`));
 
       // Fixed videos (in prev but not in current)
-      const fixedAlerts = violationWarnings.filter(v => !currentViolationIds.has(`${v.videoId}-${v.policyId}`));
+      const fixedAlerts = prevViolations.filter(v => !currentViolationIds.has(`${v.videoId}-${v.policyId}`));
       
       if (fixedAlerts.length > 0 && !isGuest && user) {
         for (const fixed of fixedAlerts) {
@@ -174,6 +179,7 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Step 5: Save new ones to Supabase
+      const prevViolationIds = new Set(prevViolations.map(v => `${v.videoId}-${v.policyId}`));
       const newAlerts = currentViolations.filter(v => !prevViolationIds.has(`${v.videoId}-${v.policyId}`));
       
       if (newAlerts.length > 0) {
@@ -203,12 +209,15 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setLastScanTime(new Date());
+      // Save to localStorage for next comparison
+      localStorage.setItem("tubeclear_violation_warnings", JSON.stringify(currentViolations));
+      
     } catch (error) {
       console.error("Policy sync failed:", error);
     } finally {
       setIsScanning(false);
     }
-  }, [livePolicies, checkForUpdates, violationWarnings, checkVideoAgainstPolicies, addNotification]);
+  }, [livePolicies, checkForUpdates, checkVideoAgainstPolicies, addNotification, isGuest, user]);
 
   // Dismiss a violation warning
   const dismissViolation = useCallback(async (videoId: string) => {
