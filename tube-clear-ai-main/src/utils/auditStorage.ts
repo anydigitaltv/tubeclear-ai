@@ -34,6 +34,7 @@ export const saveAuditReport = async (
         platform: auditData.platform,
         overall_risk: auditData.overall_risk,
         result_json: auditData.result_json || {},
+        fix_roadmap: auditData.fix_roadmap || [],
       });
 
       if (error) {
@@ -57,6 +58,7 @@ export const saveAuditReport = async (
         platform: auditData.platform,
         overall_risk: auditData.overall_risk,
         result_json: auditData.result_json || {},
+        fix_roadmap: auditData.fix_roadmap || [],
         created_at: new Date().toISOString(),
       };
 
