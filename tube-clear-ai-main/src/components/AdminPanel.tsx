@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter } from "lucide-react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -185,7 +185,29 @@ const AdminPanel = () => {
       const { data, error } = await query.limit(20);
 
       if (error) throw error;
-      setSearchResults(data || []);
+      
+      if (data && data.length > 0) {
+        // Fetch total spent for these users from transaction history
+        const userIds = data.map(u => u.id);
+        const { data: spentData } = await supabase
+          .from('coin_transactions')
+          .select('user_id, amount')
+          .in('user_id', userIds)
+          .lt('amount', 0); // Only spent (negative) amounts
+
+        const spentMap: Record<string, number> = {};
+        spentData?.forEach(tx => {
+          spentMap[tx.user_id] = (spentMap[tx.user_id] || 0) + Math.abs(tx.amount);
+        });
+
+        const resultsWithSpent = data.map(u => ({
+          ...u,
+          total_spent: spentMap[u.id] || 0
+        }));
+        setSearchResults(resultsWithSpent);
+      } else {
+        setSearchResults([]);
+      }
       
       if (data?.length === 0) {
         toast.info(userSearchQuery ? "Bhai, koi user nahi mila." : `Abhi koi ${userFilter} user nahi hai.`);
@@ -366,7 +388,7 @@ const AdminPanel = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="glass-card border-border/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -390,6 +412,20 @@ const AdminPanel = () => {
               <div>
                 <p className="text-2xl font-bold">{revenueStats.earned}</p>
                 <p className="text-xs text-muted-foreground">Total Coins Sold</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-red-500/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <TrendingDown className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{revenueStats.spent}</p>
+                <p className="text-xs text-muted-foreground">Coins Consumed</p>
               </div>
             </div>
           </CardContent>
@@ -775,8 +811,16 @@ const AdminPanel = () => {
                           </div>
                           <p className="text-xs text-muted-foreground">{u.email}</p>
                           <div className="flex items-center gap-2 mt-2">
-                            <Coins className="h-4 w-4 text-yellow-500" />
-                            <span className="text-sm font-bold text-yellow-500">{u.coins || 0} Current Coins</span>
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <Coins className="h-4 w-4 text-yellow-500" />
+                                <span className="text-sm font-bold text-yellow-500">{u.coins || 0} Current</span>
+                              </div>
+                              <div className="flex items-center gap-2 border-l border-border/50 pl-4">
+                                <TrendingDown className="h-4 w-4 text-red-400" />
+                                <span className="text-sm font-bold text-red-400">{u.total_spent || 0} Spent</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <div className="flex flex-col gap-2">
