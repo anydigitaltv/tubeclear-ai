@@ -17,13 +17,16 @@ import ViolationAlertPanel from "@/components/ViolationAlertPanel";
 import PreScanConsentModal from "@/components/PreScanConsentModal";
 import PlatformSelector from "@/components/PlatformSelector";
 import MyAuditsSection from "@/components/MyAuditsSection";
+import { CoinDeductionModal } from "@/utils/CoinDeductionModal";
 import { saveAuditReport } from "@/utils/auditStorage";
 import { checkRateLimit, recordScan } from "@/utils/rateLimiter";
+import { calculateSmartPricing } from "@/utils/smartAccessV5";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
 import { useCoins, type CoinTransactionType } from "@/contexts/CoinContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAIWithRotation } from "@/utils/apiRotationWrapper";
 import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -52,6 +55,7 @@ const Index = () => {
   const { balance, spendCoins } = useCoins();
   const { fetchMetadataWithFailover, getLastFailoverResult } = useMetadataFetcher();
   const { executeHybridScan, executePreScanOnly, generateWhyAnalysis } = useHybridScanner();
+  const { checkPoolHealth } = useAIWithRotation();
   
   const [activeSection, setActiveSection] = useState("scan");
   const [isScanning, setIsScanning] = useState(false);
@@ -62,6 +66,11 @@ const Index = () => {
   const [selectedConfig, setSelectedConfig] = useState<string>("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("youtube");
   const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
+  
+  // Coin system state
+  const [isCoinModalOpen, setIsCoinModalOpen] = useState(false);
+  const [pendingScanParams, setPendingScanParams] = useState<{url: string, platformId: string} | null>(null);
+  const [currentScanCost, setCurrentScanCost] = useState(10);
   
   // Pre-scan modal state
   const [showPreScanModal, setShowPreScanModal] = useState(false);
@@ -131,26 +140,30 @@ const Index = () => {
     sectionRefs[section as keyof typeof sectionRefs]?.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Check for keys and start scan workflow
   const handleScan = async (url: string, platformId: string) => {
+    const poolHealth = checkPoolHealth();
+    
+    // If no user keys (BYOK), trigger coin deduction flow
+    if (poolHealth.totalKeys === 0) {
+      if (isGuest) {
+        toast.error("Bhai, Guest mode mein coins scan ke liye login zaroori hai ya apni API key add karein.");
+        return;
+      }
+      
+      setPendingScanParams({ url, platformId });
+      setIsCoinModalOpen(true);
+      return;
+    }
+
+    // If keys exist, proceed directly
+    startScanProcess(url, platformId);
+  };
+
+  const startScanProcess = async (url: string, platformId: string) => {
     setIsScanning(true);
     setAuditReport(null);
-    setMetadata(null);
-
     try {
-      // STEP 0: Rate Limit Check (Admin API only)
-      const storedApiKeys = localStorage.getItem("tubeclear_api_keys");
-      const hasUserApiKey = storedApiKeys && JSON.parse(storedApiKeys).length > 0;
-      
-      if (!hasUserApiKey) {
-        // Check rate limit for admin API users
-        const rateLimitCheck = checkRateLimit(user?.id);
-        if (!rateLimitCheck.allowed) {
-          toast.error(`⚠️ ${rateLimitCheck.message}`);
-          setIsScanning(false);
-          return;
-        }
-        console.log(`Rate limit: ${rateLimitCheck.remaining} scans remaining this minute`);
-      }
       
       // STEP 2: Use selected platform from UI
       const platform: PlatformId = selectedPlatform as PlatformId;
@@ -158,6 +171,10 @@ const Index = () => {
       // STEP 3: Fetch metadata with 7-engine failover
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
       setMetadata(fetchedMetadata);
+
+      // NEW: Calculate dynamic cost based on video duration
+      const pricing = calculateSmartPricing(fetchedMetadata.durationSeconds);
+      setCurrentScanCost(pricing.finalCost);
       
       // NEW STEP 4: Run Pre-Scan only (Stages 1 & 2)
       toast.info("Running Pre-Scan analysis...");
@@ -197,6 +214,32 @@ const Index = () => {
     } catch (error) {
       console.error('Pre-scan failed:', error);
       toast.error('Pre-scan failed. Please try again.');
+      setIsScanning(false);
+    }
+  };
+
+  // Handle confirmed coin scan
+  const handleConfirmCoinScan = async () => {
+    if (!pendingScanParams || !user) return;
+    
+    setIsCoinModalOpen(false);
+    setIsScanning(true);
+
+    try {
+      const { data: success, error } = await supabase.rpc('deduct_user_coins', {
+        user_id_param: user.id,
+        amount: currentScanCost // Dynamic cost applied here
+      });
+
+      if (error || !success) {
+        toast.error(`Coins deduction failed! You need ${currentScanCost} coins.`);
+        setIsScanning(false);
+        return;
+      }
+
+      toast.success("Coins deducted! Using Official High-Speed Auditor Keys.");
+      startScanProcess(pendingScanParams.url, pendingScanParams.platformId);
+    } catch (err) {
       setIsScanning(false);
     }
   };
@@ -250,7 +293,7 @@ const Index = () => {
       await saveAuditReport({
         video_url: pendingScanInput.videoUrl,
         video_title: pendingScanInput.title,
-        thumbnail_url: metadata?.thumbnail || undefined,
+        thumbnail_url: metadata?.thumbnail,
         platform: pendingScanInput.platformId,
         overall_risk: result.riskScore,
         result_json: result,
@@ -465,6 +508,16 @@ const Index = () => {
         onProceedToDeepScan={handleProceedToDeepScan}
         onSkipDeepScan={handleSkipDeepScan}
         preScanResult={preScanResult}
+      />
+
+      {/* Coin Deduction Modal */}
+      <CoinDeductionModal
+        isOpen={isCoinModalOpen}
+        onClose={() => setIsCoinModalOpen(false)}
+        onConfirm={handleConfirmCoinScan}
+        onAddKey={() => navigate("/settings")}
+        coinCost={currentScanCost}
+        userBalance={balance}
       />
     </SidebarProvider>
   );

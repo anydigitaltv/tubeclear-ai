@@ -41,9 +41,10 @@ export const useAIWithRotation = () => {
     while (attempts < MAX_ROTATION_ATTEMPTS) {
       // Check if any keys are available
       if (allPoolsExhausted()) {
+        console.info("💰 No user keys found. Requesting coin-based scan.");
         return {
           success: false,
-          error: "ALL_KEYS_EXHAUSTED",
+          error: "USE_SYSTEM_COINS",
           rotationsCount
         };
       }

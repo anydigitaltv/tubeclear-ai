@@ -12,6 +12,15 @@ export interface PricingResult {
   isOverLimit: boolean;
 }
 
+// AI Engine Cost Configuration (Package Rates)
+// Aap yahan se rates change kar sakte hain agar AI mehnga hota hai
+const AI_RATES = {
+  PRE_SCAN_BASE: 5,       // Metadata check base coins
+  DEEP_SCAN_PER_MIN: 12,  // Video/Audio analysis per minute
+  ADMIN_MARGIN: 1.2,      // 20% margin for your profit/safety
+  MIN_SCAN_COST: 10       // Minimum cost for any scan
+};
+
 /**
  * Calculate smart pricing based on duration and location
  */
@@ -32,25 +41,24 @@ export const calculateSmartPricing = (durationSeconds: number): PricingResult =>
   }
 
   // Base cost tiers
-  let baseCost = 0;
-  if (durationMinutes < 5) {
-    baseCost = 15;
-  } else if (durationMinutes <= 15) {
-    baseCost = 35;
-  } else if (durationMinutes <= 30) {
-    baseCost = 80;
-  } else if (durationMinutes <= 60) {
-    baseCost = 150;
+  // Automatic calculation based on AI_RATES
+  let baseCost = AI_RATES.PRE_SCAN_BASE + (durationMinutes * AI_RATES.DEEP_SCAN_PER_MIN);
+  
+  // Apply safety margin (Admin profit/buffer)
+  let finalCost = Math.ceil(baseCost * AI_RATES.ADMIN_MARGIN);
+
+  // Ensure minimum cost
+  if (finalCost < AI_RATES.MIN_SCAN_COST) {
+    finalCost = AI_RATES.MIN_SCAN_COST;
   }
 
   // Detect VPN/Tier 1 location
   const multiplier = 1; // Default multiplier
-  const finalCost = Math.ceil(baseCost * multiplier);
 
   return {
     tier: "Standard",
     multiplier,
-    baseCost,
+    baseCost: Math.ceil(baseCost),
     finalCost,
     isVPN: false,
     isCached: false,

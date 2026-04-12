@@ -95,12 +95,12 @@ export const autoScanVideo = async (video: ChannelVideo): Promise<ScanResult> =>
     thumbnailUrl: video.thumbnail,
     // Pre-scan verdict based on keyword risk
     monetizationVerdict: riskScore < 30 ? "GREEN" : riskScore < 70 ? "YELLOW" : "RED",
-    fixRoadmap: issues.length > 0 
-      ? [
-          "Title aur tags mein se policy violations (keywords) ko remove karein.",
-          "Description ko advertiser-friendly banayein taake monetization on ho saky."
-        ] 
-      : ["Shabash! Aapka content monetization ke liye bilkul safe hai."]
+    fixRoadmap: issues.length > 0 && riskScore >= 30
+      ? issues.map(issue => {
+          const keyword = issue.match(/"([^"]+)"/)?.[1] || "violation";
+          return `Step: Apne title ya metadata se "${keyword}" ko remove karein taake platform guidelines ki khilaf-warzi na ho.`;
+        })
+      : ["Shabash! Aapka content monetization ke liye bilkul safe hai. Kisi tabdeeli ki zaroorat nahi."]
   };
 };
 
