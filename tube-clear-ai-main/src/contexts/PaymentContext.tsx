@@ -244,16 +244,16 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Helper to record suspicious attempt and auto-block
-  const recordIPAttempt = useCallback(async (ip: string, reason: string) => {
+  const recordIPAttempt = useCallback(async (ip: string, reason: string, userId?: string): Promise<number> => {
     try {
       const autoBlock = localStorage.getItem("tubeclear_auto_block_enabled") === "true";
-      if (!autoBlock) return;
+      if (!autoBlock) return 0;
 
       const { data } = await supabase
         .from('ip_blacklist')
         .select('*')
         .eq('ip_address', ip)
-        .single();
+        .maybeSingle();
 
       const attempts = (data?.attempts || 0) + 1;
       const shouldBlock = attempts >= 3; // Block after 3 failed attempts
@@ -262,12 +262,20 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         ip_address: ip,
         attempts,
         is_blocked: shouldBlock || (data?.is_blocked || false),
-        reason: shouldBlock ? `Auto-blocked: ${reason}` : (data?.reason || reason),
+        reason: shouldBlock ? `Auto-blocked (3 Strikes): ${reason}` : (data?.reason || reason),
         last_attempt: new Date().toISOString(),
         blocked_at: shouldBlock ? new Date().toISOString() : data?.blocked_at
       });
+
+      // If 3 strikes reached, ban the user account as well
+      if (shouldBlock && userId) {
+        await supabase.from('profiles').update({ is_blocked: true }).eq('id', userId);
+      }
+
+      return attempts;
     } catch (err) {
       console.error("Failed to record IP attempt:", err);
+      return 0;
     }
   }, []);
 
@@ -290,11 +298,20 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     setIsProcessing(true);
     const userIP = await fetchUserIP();
 
-    // 1. SECURITY: Check if current IP is already blacklisted
+    // 1. SECURITY: Check if IP is already blacklisted
     const isBlocked = await checkIPBlocked(userIP);
     if (isBlocked) {
       setIsProcessing(false);
       return { success: false, message: "Aapka IP blacklist kar diya gaya hai suspicious activity ki wajah se. Admin se rabta karein." };
+    }
+
+    // 2. SECURITY: Check if User account is blocked
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('is_blocked').eq('id', user.id).maybeSingle();
+      if (profile?.is_blocked) {
+        setIsProcessing(false);
+        return { success: false, message: "Aapka account fraud activities ki wajah se block hai. Admin se rabta karein." };
+      }
     }
 
     try {
@@ -397,15 +414,26 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
       const ocrReliable = ocrData ? ocrData.confidence > 0.75 : true;
       
       if (securityCheck.suspicious || !ocrReliable) {
-        // 2. SECURITY: Record failed attempt for auto-blocking
-        await recordIPAttempt(userIP, securityCheck.reason || "Low OCR confidence");
+        // 3. SECURITY: Record failed attempt and handle 3-strike logic
+        const attemptCount = await recordIPAttempt(userIP, securityCheck.reason || "Low OCR confidence", user?.id);
+        const strikesLeft = Math.max(0, 3 - attemptCount);
+
+        if (attemptCount >= 3) {
+          addNotification({
+            type: "error",
+            title: "PERMANENTLY BANNED!",
+            message: "Bhai, 3 baar ghalti karne par aapka account aur IP dono hamesha ke liye block kar diye gaye hain.",
+          });
+          return { success: false, message: "Account & IP Banned." };
+        }
 
         addNotification({
           type: "warning",
-          title: "Payment Under Review",
-          message: `Suspicious activity detected: ${securityCheck.reason || "Low OCR confidence"}. Admin will verify manually.`,
+          title: "Fraud Strike Detected!",
+          message: `Ghalt details detect hui hain! Aapke paas ${strikesLeft} strikes baki hain. 3 baar kiya toh permanent ban ho jao gay.`,
         });
-        return { success: false, message: "Security check failed. Transaction sent for manual review." };
+
+        return { success: false, message: `Security check failed. ${strikesLeft} strikes left.` };
       }
 
       // SMART PACKAGE MAPPING: Find the correct package based on OCR amount
