@@ -128,19 +128,61 @@ const AdminPanel = () => {
 
   const handleAddSystemKey = async () => {
     if (!newSystemKey.key.trim()) return;
+    
+    setIsBulkValidating(true);
+    toast.info(`Validating ${newSystemKey.engine} key with live API...`);
+
     try {
+      // 1. PERFORM REAL API VALIDATION (Ping Test)
+      let isValid = false;
+      const testPrompt = "ping";
+      const key = newSystemKey.key.trim();
+
+      if (newSystemKey.engine === "gemini") {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: testPrompt }] }] })
+          }
+        );
+        isValid = response.ok;
+      } else if (newSystemKey.engine === "groq") {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages: [{ role: "user", content: testPrompt }],
+            max_tokens: 5
+          })
+        });
+        isValid = response.ok;
+      }
+
+      if (!isValid) {
+        throw new Error("API Key verification failed. Key is either invalid or has no quota.");
+      }
+
+      // 2. IF VALID, SAVE TO SUPABASE
       const { error } = await supabase.from('system_vault').insert({
         engine_id: newSystemKey.engine,
-        api_key: newSystemKey.key.trim(),
+        api_key: key,
         is_active: true
       });
       if (error) throw error;
-      toast.success("Nayi system key add ho gayi!");
+      toast.success("Mubarak! Key valid hai aur System Vault mein add ho gayi.");
       setNewSystemKey({ ...newSystemKey, key: "" });
       setIsAddingSystemKey(false);
       fetchSystemKeys();
-    } catch (err) {
-      toast.error("Key add nahi ho saki.");
+    } catch (err: any) {
+      toast.error(err.message || "Key verification fail ho gayi! Key add nahi ki gayi.");
+    } finally {
+      setIsBulkValidating(false);
     }
   };
 
@@ -388,7 +430,7 @@ const AdminPanel = () => {
       if (!activeKey) throw new Error(`Aapne ${playgroundEngine} ki koi key add nahi ki hai.`);
 
       const endpoint = playgroundEngine === "gemini" 
-        ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey.key}`
+        ? `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${activeKey.key}`
         : "https://api.groq.com/openai/v1/chat/completions";
 
       let response;
