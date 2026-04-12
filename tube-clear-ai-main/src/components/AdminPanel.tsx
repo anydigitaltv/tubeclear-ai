@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter, TrendingDown, Terminal, Bot, Key, DatabaseZap, Plus, Trash2, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -217,7 +217,7 @@ const AdminPanel = () => {
     }
   };
 
-  const handleSearchUser = async () => {
+  const handleSearchUser = useCallback(async () => {
     setIsSearching(true);
     try {
       let query = supabase.from('profiles').select('*');
@@ -269,12 +269,12 @@ const AdminPanel = () => {
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [userSearchQuery, userFilter]);
 
   // Re-search when filter changes
   useEffect(() => {
     handleSearchUser();
-  }, [userFilter]);
+  }, [userFilter, handleSearchUser]);
 
   const handleUpdateCoins = async (userId: string, currentCoins: number, amount: number) => {
     try {
@@ -535,6 +535,7 @@ const AdminPanel = () => {
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
             <TabsTrigger value="playground">Playground</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
             <TabsTrigger value="vault">Vault</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="pricing">Prices</TabsTrigger>
