@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter, TrendingDown, Terminal, Bot, Key, DatabaseZap, Plus, Trash2 } from "lucide-react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter, TrendingDown, Terminal, Bot, Key, DatabaseZap, Plus, Trash2, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -37,6 +39,12 @@ const AdminPanel = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [userFilter, setUserFilter] = useState<"all" | "active" | "blocked">("all");
+  
+  // AI Playground State (Was missing causing crash)
+  const [playgroundEngine, setPlaygroundEngine] = useState<EngineId>("gemini");
+  const [playgroundPrompt, setPlaygroundPrompt] = useState("");
+  const [playgroundResponse, setPlaygroundResponse] = useState("");
+  const [isTestingAI, setIsTestingAI] = useState(false);
 
   // User History State
   const [selectedUserHistory, setSelectedUserHistory] = useState<any[]>([]);
@@ -86,7 +94,7 @@ const AdminPanel = () => {
 
   // Fetch Stats on load
   useEffect(() => {
-    const loadStats = async () => {
+    if (isLoggedIn) {
       const fetchStats = async () => {
         const { data } = await supabase.from('coin_transactions').select('amount');
         if (data) {
@@ -104,9 +112,10 @@ const AdminPanel = () => {
         fetchSystemKeys();
       };
       fetchStats();
-    };
-    loadStats();
-  }, []);
+      // Mock some live logs
+      setSystemLogs([{ id: 1, event: "Admin logged in", time: new Date().toLocaleTimeString() }]);
+    }
+  }, [isLoggedIn]);
 
   const fetchSystemKeys = async () => {
     const { data } = await supabase.from('system_vault').select('*').order('created_at', { ascending: false });
@@ -156,16 +165,6 @@ const AdminPanel = () => {
       }
     } finally {
       setIsValidatingSystem(null);
-    }
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (username === "anydigital" && password === "4414") {
-      setIsLoggedIn(true);
-      toast.success("Welcome back, Admin!");
-    } else {
-      toast.error("Ghalat username ya password!");
     }
   };
 
@@ -268,6 +267,11 @@ const AdminPanel = () => {
       setIsSearching(false);
     }
   };
+
+  // Re-search when filter changes
+  useEffect(() => {
+    handleSearchUser();
+  }, [userFilter]);
 
   const handleUpdateCoins = async (userId: string, currentCoins: number, amount: number) => {
     try {
@@ -520,15 +524,20 @@ const AdminPanel = () => {
       </div>
 
       <Tabs defaultValue="violations" className="w-full">
-        <TabsList className="grid w-full max-w-full grid-cols-5 md:grid-cols-10">
-          <TabsTrigger value="violations">Violations</TabsTrigger>
-          <TabsTrigger value="removed">Removed Features</TabsTrigger>
-          <TabsTrigger value="features">Active Checks</TabsTrigger>
-          <TabsTrigger value="alerts">Alert History</TabsTrigger>
-          <TabsTrigger value="payments">Payment Audit</TabsTrigger>
-          <TabsTrigger value="users">User Profiles</TabsTrigger>
-          <TabsTrigger value="refunds" className="text-yellow-500">Manual Refunds</TabsTrigger>
-        </TabsList>
+        <ScrollArea className="w-full">
+          <TabsList className="flex w-max min-w-full bg-secondary/20 p-1 mb-2">
+            <TabsTrigger value="violations">Violations</TabsTrigger>
+            <TabsTrigger value="removed">Removed</TabsTrigger>
+            <TabsTrigger value="features">Active Checks</TabsTrigger>
+            <TabsTrigger value="alerts">Alerts</TabsTrigger>
+            <TabsTrigger value="payments">Payments</TabsTrigger>
+            <TabsTrigger value="playground">Playground</TabsTrigger>
+            <TabsTrigger value="vault">Vault</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="pricing">Prices</TabsTrigger>
+            <TabsTrigger value="refunds" className="text-yellow-500">Refunds</TabsTrigger>
+          </TabsList>
+        </ScrollArea>
 
         <TabsContent value="violations" className="mt-4">
           <Card className="glass-card border-border/20">
