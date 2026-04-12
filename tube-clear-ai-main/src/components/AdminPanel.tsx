@@ -25,11 +25,6 @@ const AdminPanel = () => {
   const { paymentRecords } = usePayment();
   const { getActiveKeyForScan } = useAIEngines();
 
-  // Auth State
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refundTarget, setRefundTarget] = useState("");
   const [refundAmount, setRefundAmount] = useState(10);
@@ -91,7 +86,7 @@ const AdminPanel = () => {
 
   // Fetch Stats on load
   useEffect(() => {
-    if (isLoggedIn) {
+    const loadStats = async () => {
       const fetchStats = async () => {
         const { data } = await supabase.from('coin_transactions').select('amount');
         if (data) {
@@ -109,10 +104,9 @@ const AdminPanel = () => {
         fetchSystemKeys();
       };
       fetchStats();
-      // Mock some live logs
-      setSystemLogs([{ id: 1, event: "Admin logged in", time: new Date().toLocaleTimeString() }]);
-    }
-  }, [isLoggedIn]);
+    };
+    loadStats();
+  }, []);
 
   const fetchSystemKeys = async () => {
     const { data } = await supabase.from('system_vault').select('*').order('created_at', { ascending: false });
@@ -275,13 +269,6 @@ const AdminPanel = () => {
     }
   };
 
-  // Re-search when filter changes
-  useEffect(() => {
-    if (isLoggedIn) {
-      handleSearchUser();
-    }
-  }, [userFilter]);
-
   const handleUpdateCoins = async (userId: string, currentCoins: number, amount: number) => {
     try {
       // 1. Update Profile Balance
@@ -430,50 +417,6 @@ const AdminPanel = () => {
       setIsHistoryLoading(false);
     }
   };
-
-  // Render Login Screen if not authenticated
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center p-6">
-        <Card className="w-full max-w-md glass-card border-primary/20 shadow-2xl">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/20">
-              <Lock className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle className="text-2xl font-bold text-gradient">Admin Access</CardTitle>
-            <p className="text-sm text-muted-foreground">Pehly login karein agay barhne ke liye</p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs uppercase font-bold text-muted-foreground">Username</label>
-                <input 
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-secondary/50 border border-border/50 rounded-lg h-12 px-4 focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="Username"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase font-bold text-muted-foreground">Password</label>
-                <input 
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-secondary/50 border border-border/50 rounded-lg h-12 px-4 focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="••••"
-                />
-              </div>
-              <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 font-bold gap-2">
-                <LogIn className="h-5 w-5" /> Login Admin
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-6 py-8 space-y-6">
