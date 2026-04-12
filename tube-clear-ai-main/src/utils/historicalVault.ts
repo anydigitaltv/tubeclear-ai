@@ -5,6 +5,7 @@ const STORES = {
   VIDEOS: "videos",
   SCANS: "scans",
   METADATA: "metadata",
+  PENDING: "pending_scans",
 };
 
 interface VideoRecord {
@@ -65,6 +66,12 @@ class HistoricalDataVault {
         if (!db.objectStoreNames.contains(STORES.METADATA)) {
           db.createObjectStore(STORES.METADATA, { keyPath: "id" });
         }
+
+        // Pending scans for resuming
+        if (!db.objectStoreNames.contains(STORES.PENDING)) {
+          const pendingStore = db.createObjectStore(STORES.PENDING, { keyPath: "videoId" });
+          pendingStore.createIndex("updatedAt", "updatedAt", { unique: false });
+        }
       };
     });
   }
@@ -90,6 +97,45 @@ class HistoricalDataVault {
       const store = transaction.objectStore(STORES.SCANS);
       const request = store.put(scan);
 
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // Save pending scan progress
+  async savePendingScan(data: any): Promise<void> {
+    await this.ensureDB();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([STORES.PENDING], "readwrite");
+      const store = transaction.objectStore(STORES.PENDING);
+      const request = store.put({
+        ...data,
+        updatedAt: new Date().toISOString()
+      });
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // Get all pending scans
+  async getPendingScans(): Promise<any[]> {
+    await this.ensureDB();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([STORES.PENDING], "readonly");
+      const store = transaction.objectStore(STORES.PENDING);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // Clear a pending scan once completed
+  async clearPendingScan(videoId: string): Promise<void> {
+    await this.ensureDB();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([STORES.PENDING], "readwrite");
+      const store = transaction.objectStore(STORES.PENDING);
+      const request = store.delete(videoId);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });

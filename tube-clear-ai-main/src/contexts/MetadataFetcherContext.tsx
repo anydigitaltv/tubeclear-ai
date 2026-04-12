@@ -113,13 +113,13 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
         
         case "tiktok": {
           // NO-KEY METHOD: TikTok oEmbed (Official & No Key Required)
-          console.info("⚡ FREE MODE: Fetching TikTok metadata via oEmbed");
+          console.info("⚡ TIKTOK FREE MODE: Attempting oEmbed fetching...");
           try {
             const tiktokOembed = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(videoUrl)}`);
             if (tiktokOembed.ok) {
               const data = await tiktokOembed.json();
               return {
-                title: data.title || "TikTok Video",
+                title: data.title || `${data.author_name}'s Content`,
                 description: `Author: ${data.author_name}`,
                 tags: ["tiktok"],
                 thumbnail: data.thumbnail_url,
@@ -162,13 +162,15 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
             }
           }
           
-          // Try OG tags via CORS proxy (protected platform workaround)
+          // BACKUP METHOD 2: Scrape OG tags via CORS proxy if oEmbed fails
           try {
-            const corsProxy = 'https://api.allorigins.win/raw?url=';
+            console.info("🔗 oEmbed failed, trying proxy scraping...");
+            const corsProxy = 'https://api.allorigins.win/get?url=';
             const response = await fetch(corsProxy + encodeURIComponent(videoUrl));
             
             if (response.ok) {
-              const html = await response.text();
+              const proxyData = await response.json();
+              const html = proxyData.contents;
               const parser = new DOMParser();
               const doc = parser.parseFromString(html, 'text/html');
               

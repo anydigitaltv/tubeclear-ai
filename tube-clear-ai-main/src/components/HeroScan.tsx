@@ -121,9 +121,9 @@ const HeroScan = ({ onScan, isScanning, selectedPlatform = "youtube", onPlatform
             transition={{ repeat: Infinity, duration: 3 }}
             className="flex justify-center"
           >
-            <Badge variant="outline" className="bg-green-500/20 border-green-400 text-green-400 px-6 py-2.5 text-sm font-bold shadow-[0_0_15px_rgba(74,222,128,0.3)] gap-2">
+            <Badge variant="outline" className="bg-blue-500/20 border-blue-400 text-blue-400 px-6 py-2.5 text-sm font-bold shadow-[0_0_15px_rgba(59,130,246,0.3)] gap-2">
               <Zap className="w-4 h-4 fill-current" />
-              BILKUL MUFT SCAN - NO COINS NEEDED! 🎁
+              USE YOUR API KEY FOR FREE SCANS | OR USE COINS 🪙
             </Badge>
           </motion.div>
 
@@ -133,10 +133,10 @@ const HeroScan = ({ onScan, isScanning, selectedPlatform = "youtube", onPlatform
               <div className="glass-card border border-green-500/30 bg-green-500/5 p-3 rounded-lg">
                 <div className="flex items-center gap-2 text-sm">
                   <ShieldCheck className="w-4 h-4 text-green-500" />
-                  <span className="text-green-400 font-medium">Official Auditor Mode Active</span>
+                  <span className="text-green-400 font-medium">Auditor System Ready</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 ml-6 text-left">
-                  Aapki video ka AI audit bilkul muft hoga. Platform-level scanning start karne ke liye link paste karein.
+                  Apni API key use karein muft scan ke liye, ya hamari High-Speed Admin keys ke liye coins istemal karein.
                 </p>
               </div>
             )}

@@ -141,5 +141,41 @@ export const fetchChannelVideos = async (
     }
   }
 
+  // TIKTOK SYNC METHOD (Backup Scraper Strategy)
+  if (platformId === 'tiktok') {
+    try {
+      const rapidApiKey = import.meta.env.VITE_RAPIDAPI_KEY;
+      if (!rapidApiKey) {
+        console.warn("⚠️ TikTok Channel Sync requires RapidAPI Key. User must use single links for free scans.");
+        return [];
+      }
+
+      const username = extractChannelName(channelUrl);
+      const response = await fetch(
+        `https://tiktok-download-without-watermark.p.rapidapi.com/user_video?unique_id=${username}&count=15`,
+        {
+          headers: {
+            'X-RapidAPI-Key': rapidApiKey,
+            'X-RapidAPI-Host': 'tiktok-download-without-watermark.p.rapidapi.com'
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        return (data.data?.videos || []).map((v: any) => ({
+          videoId: v.video_id,
+          title: v.title || `TikTok Video by ${username}`,
+          thumbnail: v.cover,
+          platformId: 'tiktok',
+          videoUrl: `https://www.tiktok.com/@${username}/video/${v.video_id}`,
+          // ... mapping stats
+        }));
+      }
+    } catch (e) {
+      console.error("TikTok sync failed:", e);
+    }
+  }
+
   return [];
 };

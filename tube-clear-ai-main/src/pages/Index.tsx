@@ -27,6 +27,7 @@ import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetch
 import { useCoins, type CoinTransactionType } from "@/contexts/CoinContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAIWithRotation } from "@/utils/apiRotationWrapper";
+import { vault } from "@/utils/historicalVault";
 import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -119,6 +120,32 @@ const Index = () => {
     }
   }, [selectedPlatform, auditConfigs]);
 
+  // Check for pending/interrupted scans on mount
+  useEffect(() => {
+    const checkPendingScans = async () => {
+      const pending = await vault.getPendingScans();
+      if (pending && pending.length > 0) {
+        const latest = pending[0];
+        toast.info(`Interrupted scan found: ${latest.title}. Resuming...`, {
+          action: {
+            label: "Resume Now",
+            onClick: () => {
+              setMetadata({
+                title: latest.title,
+                description: latest.description,
+                tags: latest.tags,
+                thumbnail: latest.thumbnail,
+                fetchedFrom: "native"
+              });
+              handleScan(latest.videoUrl, latest.platformId);
+            }
+          }
+        });
+      }
+    };
+    checkPendingScans();
+  }, []);
+
   const sectionRefs = {
     scan: useRef<HTMLDivElement>(null),
     store: useRef<HTMLDivElement>(null),
@@ -171,6 +198,17 @@ const Index = () => {
       // STEP 3: Fetch metadata with 7-engine failover
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
       setMetadata(fetchedMetadata);
+
+      // Save to Pending Vault immediately in case of interruption
+      await vault.savePendingScan({
+        videoId: url.split('/').pop() || 'unknown',
+        platformId: platform,
+        title: fetchedMetadata.title,
+        description: fetchedMetadata.description,
+        tags: fetchedMetadata.tags,
+        thumbnail: fetchedMetadata.thumbnail,
+        videoUrl: url
+      });
 
       // NEW: Calculate dynamic cost based on video duration
       const pricing = calculateSmartPricing(fetchedMetadata.durationSeconds);
@@ -298,6 +336,9 @@ const Index = () => {
         overall_risk: result.riskScore,
         result_json: result,
       }, isGuest, user?.id);
+      
+      // Clear pending scan as it's finished
+      await vault.clearPendingScan(pendingScanInput.videoId);
       
       // Record scan for rate limiting (if using admin API)
       const poolHealth = checkPoolHealth();
