@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAIDoctor, type PolicyViolation, type AdminAlert } from "@/contexts/AIDoctorContext";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { usePayment } from "@/contexts/PaymentContext";
 
 const AdminPanel = () => {
   const {
@@ -17,8 +20,18 @@ const AdminPanel = () => {
     enableFeature,
     sendAdminAlert,
   } = useAIDoctor();
+  const { paymentRecords } = usePayment();
+
+  // Auth State
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refundTarget, setRefundTarget] = useState("");
+  const [refundAmount, setRefundAmount] = useState(10);
+  const [refundReason, setRefundReason] = useState("");
+  const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
   const activeViolations = violations.filter((v) => v.status === "active");
   const reviewedViolations = violations.filter((v) => v.status === "reviewed" || v.status === "dismissed");
@@ -41,6 +54,53 @@ const AdminPanel = () => {
     setIsRefreshing(false);
   };
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (username === "anydigital" && password === "4414") {
+      setIsLoggedIn(true);
+      toast.success("Welcome back, Admin!");
+    } else {
+      toast.error("Ghalat username ya password!");
+    }
+  };
+
+  const handleManualRefund = async () => {
+    if (!refundTarget) {
+      toast.error("Bhai, user ka email ya ID toh likho!");
+      return;
+    }
+    
+    setIsProcessingRefund(true);
+    try {
+      // Step 1: Find user and current balance
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('id, coins')
+        .or(`email.eq.${refundTarget},id.eq.${refundTarget}`)
+        .single();
+
+      if (fetchError || !profile) throw new Error("User nahi mila!");
+
+      // Step 2: Update balance via Supabase RPC or direct update
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ coins: (profile.coins || 0) + refundAmount })
+        .eq('id', profile.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(`${refundAmount} Coins refund kar diye gaye hain!`);
+      setRefundTarget("");
+      setRefundReason("");
+      
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Refund fail ho gaya");
+    } finally {
+      setIsProcessingRefund(false);
+    }
+  };
+
   const getSeverityColor = (severity: PolicyViolation["severity"]) => {
     switch (severity) {
       case "critical": return "bg-red-500/20 text-red-500 border-red-500/30";
@@ -49,6 +109,50 @@ const AdminPanel = () => {
       default: return "bg-blue-500/20 text-blue-500 border-blue-500/30";
     }
   };
+
+  // Render Login Screen if not authenticated
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-6">
+        <Card className="w-full max-w-md glass-card border-primary/20 shadow-2xl">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/20">
+              <Lock className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-gradient">Admin Access</CardTitle>
+            <p className="text-sm text-muted-foreground">Pehly login karein agay barhne ke liye</p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase font-bold text-muted-foreground">Username</label>
+                <input 
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full bg-secondary/50 border border-border/50 rounded-lg h-12 px-4 focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="anydigital"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase font-bold text-muted-foreground">Password</label>
+                <input 
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-secondary/50 border border-border/50 rounded-lg h-12 px-4 focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="••••"
+                />
+              </div>
+              <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 font-bold gap-2">
+                <LogIn className="h-5 w-5" /> Login Admin
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-6 py-8 space-y-6">
@@ -127,11 +231,13 @@ const AdminPanel = () => {
       </div>
 
       <Tabs defaultValue="violations" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="grid w-full max-w-4xl grid-cols-6">
           <TabsTrigger value="violations">Violations</TabsTrigger>
           <TabsTrigger value="removed">Removed Features</TabsTrigger>
           <TabsTrigger value="features">Active Checks</TabsTrigger>
           <TabsTrigger value="alerts">Alert History</TabsTrigger>
+          <TabsTrigger value="payments">Payment Audit</TabsTrigger>
+          <TabsTrigger value="refunds" className="text-yellow-500">Manual Refunds</TabsTrigger>
         </TabsList>
 
         <TabsContent value="violations" className="mt-4">
@@ -206,6 +312,108 @@ const AdminPanel = () => {
                   </div>
                 )}
               </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payments" className="mt-4">
+          <Card className="glass-card border-blue-500/20">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-blue-400">
+                <History className="h-5 w-5" />
+                Automated Payment Verification Logs
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                {paymentRecords.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Check className="h-12 w-12 mx-auto mb-2 text-green-500 opacity-50" />
+                    <p>No recent payment transactions recorded.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {paymentRecords.map((record) => (
+                      <div key={record.id} className="p-4 rounded-lg bg-secondary/30 border border-border/20 flex justify-between items-center">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm">{record.transactionId}</span>
+                            {record.autoVerified ? (
+                              <Badge className="bg-green-500/20 text-green-400 text-[10px] h-4">AUTO-PASSED</Badge>
+                            ) : (
+                              <Badge className="bg-yellow-500/20 text-yellow-400 text-[10px] h-4">MANUAL REVIEW</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">Amount: {record.amount} | Coins: {record.coins} | Method: {record.method}</p>
+                          <p className="text-[10px] text-muted-foreground italic">Detected: {new Date(record.createdAt).toLocaleString()}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-red-500/10 text-red-400">
+                            <ShieldAlert className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="refunds" className="mt-4">
+          <Card className="glass-card border-yellow-500/20">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-yellow-500">
+                <Undo2 className="h-5 w-5" />
+                Manual Refund Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase font-bold">User Email or ID</label>
+                  <div className="relative">
+                    <UserSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input 
+                      type="text" 
+                      placeholder="anydigitaltv@gmail.com"
+                      className="w-full bg-secondary/50 border border-border/50 rounded-lg h-10 pl-10 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      value={refundTarget}
+                      onChange={(e) => setRefundTarget(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase font-bold">Amount (Coins)</label>
+                  <div className="relative">
+                    <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-yellow-500" />
+                    <input 
+                      type="number" 
+                      className="w-full bg-secondary/50 border border-border/50 rounded-lg h-10 pl-10 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      value={refundAmount}
+                      onChange={(e) => setRefundAmount(parseInt(e.target.value))}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground uppercase font-bold">Reason for Refund</label>
+                <textarea 
+                  placeholder="e.g. Scan failed but coins deducted"
+                  className="w-full bg-secondary/50 border border-border/50 rounded-lg p-3 text-sm min-h-[80px] focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                />
+              </div>
+              <Button 
+                onClick={handleManualRefund} 
+                disabled={isProcessingRefund}
+                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold"
+              >
+                {isProcessingRefund ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Undo2 className="h-4 w-4 mr-2" />}
+                Issue Refund Now
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

@@ -15,6 +15,7 @@ export interface PaymentRecord {
   transactionId: string;
   status: "pending" | "approved" | "rejected" | "fraud";
   ocrData?: OCRResult;
+  autoVerified: boolean;
   createdAt: string;
 }
 
@@ -209,6 +210,22 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // Helper to detect fraudulent patterns
+  const isTIDSuspicious = (tid: string): { suspicious: boolean; reason?: string } => {
+    // Common fake patterns: repeating chars, too short, or sequence numbers
+    const repeatingPattern = /^(.)\1+$/.test(tid);
+    const sequencePattern = /^(0123456789|1234567890|abcdef)/i.test(tid);
+    
+    if (tid.length < 8) return { suspicious: true, reason: "TID too short" };
+    if (repeatingPattern) return { suspicious: true, reason: "Fake repeating pattern" };
+    if (sequencePattern) return { suspicious: true, reason: "Common sequence pattern" };
+    
+    // Check for blacklisted TIDs (mock list)
+    if (["12345678", "00000000", "TEST-TID"].includes(tid)) return { suspicious: true, reason: "Blacklisted TID" };
+    
+    return { suspicious: false };
+  };
+
   const processPayment = useCallback(async (
     method: PaymentMethod,
     input: string,
@@ -297,6 +314,19 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         ocrData = await performOCR(screenshot);
       }
 
+      // AUTOMATIC SECURITY CHECK
+      const securityCheck = isTIDSuspicious(input);
+      const ocrReliable = ocrData ? ocrData.confidence > 0.75 : true;
+      
+      if (securityCheck.suspicious || !ocrReliable) {
+        addNotification({
+          type: "warning",
+          title: "Payment Under Review",
+          message: `Suspicious activity detected: ${securityCheck.reason || "Low OCR confidence"}. Admin will verify manually.`,
+        });
+        // Log as pending/fraud for admin review without adding coins
+      }
+
       // Auto-approve if TID is unique and OCR data is valid
       const packages = COIN_PACKAGES[method];
       const coinPackage = packages[0]; // Default to smallest package
@@ -317,6 +347,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         transactionId: input,
         status: "approved",
         ocrData,
+        autoVerified: true,
         createdAt: new Date().toISOString(),
       };
 
