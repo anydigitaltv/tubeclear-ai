@@ -268,7 +268,8 @@ const Index = () => {
     try {
       const { data: success, error } = await supabase.rpc('deduct_user_coins', {
         user_id_param: user.id,
-        amount: currentScanCost // Dynamic cost applied here
+        amount: currentScanCost,
+        video_title_param: metadata?.title || "Video Scan"
       });
 
       if (error || !success) {
@@ -276,6 +277,9 @@ const Index = () => {
         setIsScanning(false);
         return;
       }
+
+      // Update UI balance instantly after database deduction
+      await refetchBalance();
 
       // Show professional success animation
       setShowCoinSuccess(true);

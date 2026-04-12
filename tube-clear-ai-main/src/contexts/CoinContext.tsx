@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 // Transaction types - NO FREE COINS, only manual additions
 export type CoinTransactionType =
@@ -39,23 +40,37 @@ export const CoinProvider = ({ children }: { children: ReactNode }) => {
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load balance from localStorage
+  // Load balance from Supabase (login) or localStorage (guest)
   useEffect(() => {
-    const loadBalance = () => {
+    const loadBalance = async () => {
       setIsLoading(true);
       
-      const storageKey = user ? `${COIN_STORAGE_KEY}_${user.id}` : COIN_STORAGE_KEY;
-      const stored = localStorage.getItem(storageKey);
-      
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setBalance(parsed.balance || 0);
-        setTransactions(parsed.transactions || []);
+      if (user) {
+        // Fetch from Database for authenticated users
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("coins")
+          .eq("id", user.id)
+          .single();
+          
+        const { data: txs } = await supabase
+          .from("coin_transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+          
+        setBalance(profile?.coins || 0);
+        setTransactions(txs || []);
       } else {
-        setBalance(0);
-        setTransactions([]);
+        // Load from localStorage for guests
+        const stored = localStorage.getItem(COIN_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setBalance(parsed.balance || 0);
+          setTransactions(parsed.transactions || []);
+        }
       }
-      
       setIsLoading(false);
     };
 
