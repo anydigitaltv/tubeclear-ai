@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { usePolicyWatcher } from "@/contexts/PolicyWatcherContext";
 import { vault } from "@/utils/historicalVault";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ViolationWarning {
   videoId: string;
@@ -31,6 +33,7 @@ const PolicySyncContext = createContext<PolicySyncContextType | undefined>(undef
 export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
   const { livePolicies, checkForUpdates } = usePolicyWatcher();
   const { addNotification } = useNotifications();
+  const { user, isGuest } = useAuth();
   
   const [violationWarnings, setViolationWarnings] = useState<ViolationWarning[]>(() => {
     try {
@@ -44,10 +47,41 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [lastScanTime, setLastScanTime] = useState<Date | null>(null);
 
-  // Save violations to localStorage
+  // Load and sync alerts on mount/auth change
   useEffect(() => {
-    localStorage.setItem("tubeclear_violation_warnings", JSON.stringify(violationWarnings));
-  }, [violationWarnings]);
+    const loadAlerts = async () => {
+      if (!isGuest && user) {
+        // Fetch permanent alerts from Supabase
+        const { data, error } = await supabase
+          .from("violation_alerts")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (!error && data) {
+          const transformed: ViolationWarning[] = data.map(item => ({
+            videoId: item.video_id,
+            platformId: item.platform_id,
+            title: item.title,
+            violationType: 'policy',
+            severity: item.severity as any,
+            detectedAt: item.detected_at,
+            policyId: item.policy_id,
+            policyTitle: item.policy_title,
+            description: item.description,
+            urduDescription: item.urdu_description
+          }));
+          setViolationWarnings(transformed);
+        }
+      }
+    };
+
+    loadAlerts();
+
+    // Save to localStorage as backup
+    if (isGuest) {
+      localStorage.setItem("tubeclear_violation_warnings", JSON.stringify(violationWarnings));
+    }
+  }, [user, isGuest]);
 
   // Check if a video violates any policy
   const checkVideoAgainstPolicies = useCallback((
@@ -93,16 +127,7 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
     setIsScanning(true);
     
     try {
-      // Step 1: Check for policy updates
-      const hasUpdates = await checkForUpdates();
-      
-      if (!hasUpdates) {
-        console.log("No policy updates found");
-        setLastScanTime(new Date());
-        setIsScanning(false);
-        return;
-      }
-
+      await checkForUpdates();
       console.log("Policy updates detected! Scanning videos...");
 
       // Step 2: Get all videos from IndexedDB
@@ -115,8 +140,8 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Step 3: Check each video against updated policies
-      const newViolations: ViolationWarning[] = [];
+      // Step 3: Re-calculate all current violations
+      const currentViolations: ViolationWarning[] = [];
       
       Object.keys(livePolicies).forEach(platformId => {
         const policies = livePolicies[platformId] || [];
@@ -124,34 +149,57 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
         allVideos.forEach(video => {
           if (video.platform === platformId) {
             const violations = checkVideoAgainstPolicies(video, policies);
-            newViolations.push(...violations);
+            currentViolations.push(...violations);
           }
         });
       });
 
-      // Step 4: Filter out already dismissed violations
-      const existingVideoIds = new Set(
-        violationWarnings.map(v => v.videoId)
-      );
-      
-      const uniqueNewViolations = newViolations.filter(
-        v => !existingVideoIds.has(v.videoId)
-      );
+      // Step 4: Logic to add new alerts and REMOVE fixed ones
+      const prevViolationIds = new Set(violationWarnings.map(v => `${v.videoId}-${v.policyId}`));
+      const currentViolationIds = new Set(currentViolations.map(v => `${v.videoId}-${v.policyId}`));
 
-      // Step 5: Add new violations and notify user
-      if (uniqueNewViolations.length > 0) {
-        setViolationWarnings(prev => [...prev, ...uniqueNewViolations]);
-        
-        // Show notification
+      // Fixed videos (in prev but not in current)
+      const fixedAlerts = violationWarnings.filter(v => !currentViolationIds.has(`${v.videoId}-${v.policyId}`));
+      
+      if (fixedAlerts.length > 0 && !isGuest && user) {
+        for (const fixed of fixedAlerts) {
+          await supabase
+            .from("violation_alerts")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("video_id", fixed.videoId)
+            .eq("policy_id", fixed.policyId);
+        }
+        console.log(`Resolved ${fixedAlerts.length} violations automatically.`);
+      }
+
+      // Step 5: Save new ones to Supabase
+      const newAlerts = currentViolations.filter(v => !prevViolationIds.has(`${v.videoId}-${v.policyId}`));
+      
+      if (newAlerts.length > 0) {
+        if (!isGuest && user) {
+          const toInsert = newAlerts.map(v => ({
+            user_id: user.id,
+            video_id: v.videoId,
+            platform_id: v.platformId,
+            title: v.title,
+            policy_id: v.policyId,
+            policy_title: v.policyTitle,
+            severity: v.severity,
+            description: v.description,
+            urdu_description: v.urduDescription
+          }));
+          await supabase.from("violation_alerts").upsert(toInsert);
+        }
+
+        setViolationWarnings(currentViolations);
         addNotification({
-          title: "⚠️ Policy Violations Detected",
-          message: `${uniqueNewViolations.length} video(s) may violate updated policies. Review now.`,
+          title: "⚠️ Policy Updates",
+          message: `${newAlerts.length} videos have new violations. Fixed videos were removed.`,
           type: "warning",
         });
-
-        console.log(`Found ${uniqueNewViolations.length} new violations`);
       } else {
-        console.log("No new violations detected");
+        setViolationWarnings(currentViolations);
       }
 
       setLastScanTime(new Date());
@@ -163,8 +211,16 @@ export const PolicySyncProvider = ({ children }: { children: ReactNode }) => {
   }, [livePolicies, checkForUpdates, violationWarnings, checkVideoAgainstPolicies, addNotification]);
 
   // Dismiss a violation warning
-  const dismissViolation = useCallback((videoId: string) => {
+  const dismissViolation = useCallback(async (videoId: string) => {
     setViolationWarnings(prev => prev.filter(v => v.videoId !== videoId));
+    
+    if (!isGuest && user) {
+      await supabase
+        .from("violation_alerts")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("video_id", videoId);
+    }
   }, []);
 
   // Get violation count
