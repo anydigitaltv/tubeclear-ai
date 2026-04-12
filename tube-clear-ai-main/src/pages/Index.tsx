@@ -193,17 +193,18 @@ const Index = () => {
     setIsScanning(true);
     setAuditReport(null);
     try {
-      
       // STEP 2: Use selected platform from UI
       const platform: PlatformId = selectedPlatform as PlatformId;
       
       // STEP 3: Fetch metadata with 7-engine failover
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
+      if (!fetchedMetadata) throw new Error("Metadata fetch failed");
+      
       setMetadata(fetchedMetadata);
 
       // Save to Pending Vault immediately in case of interruption
       await vault.savePendingScan({
-        videoId: url.split('/').pop() || 'unknown',
+        videoId: url.split('/').filter(Boolean).pop() || 'unknown',
         platformId: platform,
         title: fetchedMetadata.title,
         description: fetchedMetadata.description,
@@ -219,10 +220,10 @@ const Index = () => {
       // NEW STEP 4: Run Pre-Scan only (Stages 1 & 2)
       toast.info("Running Pre-Scan analysis...");
       const preScanData = await executePreScanOnly({
-        videoId: url.split('/').pop() || 'unknown',
+        videoId: url.split('/').filter(Boolean).pop() || 'unknown',
         platformId: platform,
         title: fetchedMetadata.title,
-        tags: fetchedMetadata.tags,
+        tags: fetchedMetadata.tags || [],
         description: fetchedMetadata.description,
         durationSeconds: fetchedMetadata.durationSeconds,
         videoUrl: url,
@@ -230,7 +231,7 @@ const Index = () => {
       
       // Store pending input for modal callbacks
       pendingScanInput = {
-        videoId: url.split('/').pop() || 'unknown',
+        videoId: url.split('/').filter(Boolean).pop() || 'unknown',
         platformId: platform,
         title: fetchedMetadata.title,
         tags: fetchedMetadata.tags,
@@ -243,7 +244,7 @@ const Index = () => {
       setPreScanResult({
         riskScore: preScanData.riskScore,
         verdict: getFinalVerdict(preScanData.riskScore, platform),
-        issues: preScanData.issues,
+        issues: preScanData.issues || [],
         requiresDeepScan: preScanData.requiresDeepScan,
         pendingInput: pendingScanInput,
         patternResult: null,
