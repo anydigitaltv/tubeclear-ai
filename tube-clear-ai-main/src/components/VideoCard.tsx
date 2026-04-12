@@ -88,9 +88,9 @@ const VideoCard = ({ video }: VideoCardProps) => {
         "relative aspect-video overflow-hidden bg-gradient-to-br",
         platformGradients[video.platformId]
       )}>
-        {!imageError && video.thumbnail ? (
+        {!imageError && (video.thumbnail || (video as any).thumbnailUrl) ? (
           <img
-            src={video.thumbnail}
+            src={video.thumbnail || (video as any).thumbnailUrl}
             alt={video.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"

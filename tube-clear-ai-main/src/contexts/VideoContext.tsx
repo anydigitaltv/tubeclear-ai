@@ -129,7 +129,13 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
         const channelUrl = platform.accountName || '';
         console.log(`📺 Fetching videos from ${platform.name}...`);
         
-        // Step 1: Fetch channel videos
+        // TODO: Replace fetchChannelVideos with real platform API calls
+        // YouTube: Use YouTube Data API v3 (search.list or playlistItems)
+        // TikTok: Use TikTok API for Business
+        // Instagram: Use Instagram Graph API
+        // Facebook: Use Facebook Graph API
+        // Dailymotion: Use Dailymotion API
+        // For now, using simulated data
         const channelVideos = await fetchChannelVideos(platform.id, channelUrl);
         console.log(`✅ Fetched ${channelVideos.length} videos from ${platform.name}`);
         

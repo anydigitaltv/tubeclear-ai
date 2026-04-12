@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, RefreshCw, Shield, Smartphone, ArrowUpDown, X } from "lucide-react";
+import { Search, RefreshCw, Shield, Smartphone, ArrowUpDown, X, Youtube, Music2, Instagram as InstagramIcon, Facebook, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,13 +14,30 @@ import VideoCard from "@/components/VideoCard";
 import { useVideos } from "@/contexts/VideoContext";
 import { usePlatforms, type PlatformId } from "@/contexts/PlatformContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+const platformIcons: Record<PlatformId, React.ComponentType<{ className?: string }>> = {
+  youtube: Youtube,
+  tiktok: Music2,
+  instagram: InstagramIcon,
+  facebook: Facebook,
+  dailymotion: PlayCircle,
+};
+
+const platformColors: Record<PlatformId, string> = {
+  youtube: "text-red-500",
+  tiktok: "text-white",
+  instagram: "text-pink-500",
+  facebook: "text-blue-500",
+  dailymotion: "text-cyan-500",
+};
 
 const VideoDashboard = () => {
   const { videos, isLoading, lastSynced, refreshVideos } = useVideos();
   const { platforms, getConnectedCount } = usePlatforms();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"views" | "date" | "platform">("date");
-  const [platformFilter, setPlatformFilter] = useState<PlatformId | "all">("all");
+  const [activeTab, setActiveTab] = useState<PlatformId | "all">("all");
   const [showDeviceNotice, setShowDeviceNotice] = useState(false);
 
   // Low-end device check notification
@@ -43,9 +60,9 @@ const VideoDashboard = () => {
   const filteredVideos = useMemo(() => {
     let result = [...videos];
 
-    // Platform filter
-    if (platformFilter !== "all") {
-      result = result.filter(v => v.platformId === platformFilter);
+    // Platform filter from active tab
+    if (activeTab !== "all") {
+      result = result.filter(v => v.platformId === activeTab);
     }
 
     // Search filter
@@ -68,7 +85,7 @@ const VideoDashboard = () => {
     }
 
     return result;
-  }, [videos, searchQuery, sortBy, platformFilter]);
+  }, [videos, searchQuery, sortBy, activeTab]);
 
   const connectedPlatforms = platforms.filter(p => p.connected);
   const videoCount = filteredVideos.length;
@@ -151,21 +168,6 @@ const VideoDashboard = () => {
           />
         </div>
 
-        {/* Platform Filter */}
-        <Select value={platformFilter} onValueChange={(v) => setPlatformFilter(v as PlatformId | "all")}>
-          <SelectTrigger className="w-[150px] bg-secondary/50">
-            <SelectValue placeholder="Platform" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Platforms</SelectItem>
-            {connectedPlatforms.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         {/* Sort */}
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as "views" | "date" | "platform")}>
           <SelectTrigger className="w-[140px] bg-secondary/50">
@@ -180,25 +182,46 @@ const VideoDashboard = () => {
         </Select>
       </div>
 
-      {/* Platform Filter Tags */}
-      <div className="flex flex-wrap gap-2">
-        <Badge
-          variant={platformFilter === "all" ? "default" : "outline"}
-          className="cursor-pointer"
-          onClick={() => setPlatformFilter("all")}
+      {/* Platform Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        <button
+          onClick={() => setActiveTab("all")}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap",
+            activeTab === "all"
+              ? "bg-primary text-primary-foreground"
+              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+          )}
         >
-          All ({videos.length})
-        </Badge>
-        {connectedPlatforms.map((p) => (
-          <Badge
-            key={p.id}
-            variant={platformFilter === p.id ? "default" : "outline"}
-            className="cursor-pointer"
-            onClick={() => setPlatformFilter(p.id)}
-          >
-            {p.name} ({videos.filter(v => v.platformId === p.id).length})
-          </Badge>
-        ))}
+          <Shield className="h-4 w-4" />
+          All Videos ({videos.length})
+        </button>
+        {platforms.map((platform) => {
+          const Icon = platformIcons[platform.id as PlatformId];
+          const color = platformColors[platform.id as PlatformId];
+          const videoCount = videos.filter(v => v.platformId === platform.id).length;
+          
+          return (
+            <button
+              key={platform.id}
+              onClick={() => platform.connected && setActiveTab(platform.id as PlatformId)}
+              disabled={!platform.connected}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap",
+                activeTab === platform.id
+                  ? "bg-primary text-primary-foreground"
+                  : platform.connected
+                    ? "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    : "bg-secondary/30 text-muted-foreground/40 cursor-not-allowed opacity-50"
+              )}
+            >
+              <Icon className={cn("h-4 w-4", platform.connected ? color : "")} />
+              {platform.name}
+              {platform.connected && ` (${videoCount})`}
+              {!platform.connected && " (Not Connected)"}
+            </button>
+          );
+        })}
       </div>
 
       {/* Video Grid */}
