@@ -107,7 +107,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
     setCurrentStage("pattern");
     setScanProgress(45);
     
-    const policies = livePolicies[platformId] || [];
+    const policies = livePolicies[platformId] || livePolicies[platformId as keyof typeof livePolicies] || [];
     const violations: LivePolicy[] = [];
     const matchedKeywords: string[] = [];
     
@@ -138,6 +138,8 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       matchedKeywords: [...new Set(matchedKeywords)], // Unique
       cleanStatus,
     };
+    
+    console.log('🔍 Pattern Match Result:', { platformId, riskScore, cleanStatus, violations: violations.length });
     
     return result;
   }, [livePolicies]);

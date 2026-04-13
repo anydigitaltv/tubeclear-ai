@@ -203,53 +203,63 @@ const Index = () => {
       
       // NEW STEP 4: Run Pre-Scan only (Stages 1 & 2)
       toast.info("Running Pre-Scan analysis...");
-      const preScanData = await executePreScanOnly({
-        videoId,
-        platformId: platform,
-        title: fetchedMetadata.title,
-        tags: safeTags,
-        thumbnail: fetchedMetadata.thumbnail,
-        description: fetchedMetadata.description,
-        durationSeconds: fetchedMetadata.durationSeconds,
-        videoUrl: url,
-      });
       
-      // Store pending input for modal callbacks
-      const scanInput = {
-        videoId,
-        platformId: platform,
-        title: fetchedMetadata.title,
-        tags: safeTags,
-        description: fetchedMetadata.description,
-        durationSeconds: fetchedMetadata.durationSeconds,
-        videoUrl: url,
-        useSystemKeys: useSystemKeys
-      };
-      setPendingScanInput(scanInput);
-      
-      // Calculate scan cost
-      const poolHealth = checkPoolHealth();
-      const hasUserAPIKey = poolHealth.totalKeys > 0;
-      const scanCost = calculateScanCost(fetchedMetadata.durationSeconds || 0);
-      
-      // Show pre-scan consent modal
-      setPreScanResult({
-        riskScore: preScanData.riskScore,
-        verdict: getFinalVerdict(preScanData.riskScore, platform),
-        issues: preScanData.issues || [],
-        requiresDeepScan: preScanData.requiresDeepScan,
-        pendingInput: scanInput,
-        patternResult: null,
-        videoDuration: fetchedMetadata.durationSeconds,
-        scanCost: hasUserAPIKey ? 0 : scanCost, // FREE if user has API key
-        hasUserAPIKey,
-      });
-      setShowPreScanModal(true);
-      setIsScanning(false); // Stop scanning indicator, waiting for user choice
+      try {
+        const preScanData = await executePreScanOnly({
+          videoId,
+          platformId: platform,
+          title: fetchedMetadata.title,
+          tags: safeTags,
+          thumbnail: fetchedMetadata.thumbnail,
+          description: fetchedMetadata.description,
+          durationSeconds: fetchedMetadata.durationSeconds,
+          videoUrl: url,
+        });
+        
+        console.log('✅ Pre-scan completed:', preScanData);
+        
+        // Store pending input for modal callbacks
+        const scanInput = {
+          videoId,
+          platformId: platform,
+          title: fetchedMetadata.title,
+          tags: safeTags,
+          description: fetchedMetadata.description,
+          durationSeconds: fetchedMetadata.durationSeconds,
+          videoUrl: url,
+          useSystemKeys: useSystemKeys
+        };
+        setPendingScanInput(scanInput);
+        
+        // Calculate scan cost
+        const poolHealth = checkPoolHealth();
+        const hasUserAPIKey = poolHealth.totalKeys > 0;
+        const scanCost = calculateScanCost(fetchedMetadata.durationSeconds || 0);
+        
+        // Show pre-scan consent modal
+        setPreScanResult({
+          riskScore: preScanData.riskScore,
+          verdict: getFinalVerdict(preScanData.riskScore, platform),
+          issues: preScanData.issues || [],
+          requiresDeepScan: preScanData.requiresDeepScan,
+          pendingInput: scanInput,
+          patternResult: null,
+          videoDuration: fetchedMetadata.durationSeconds,
+          scanCost: hasUserAPIKey ? 0 : scanCost, // FREE if user has API key
+          hasUserAPIKey,
+        });
+        setShowPreScanModal(true);
+        setIsScanning(false); // Stop scanning indicator, waiting for user choice
+        
+      } catch (error) {
+        console.error('Pre-scan failed:', error);
+        toast.error('Pre-scan failed. Please try again.');
+        setIsScanning(false);
+      }
       
     } catch (error) {
-      console.error('Pre-scan failed:', error);
-      toast.error('Pre-scan failed. Please try again.');
+      console.error('Initial metadata fetch failed:', error);
+      toast.error('Video details nahi mil saken. URL check karein.');
       setIsScanning(false);
     }
   };
