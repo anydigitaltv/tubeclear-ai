@@ -20,7 +20,7 @@ import MyAuditsSection from "@/components/MyAuditsSection";
 import { CoinDeductionModal } from "@/utils/CoinDeductionModal";
 import { saveAuditReport } from "@/utils/auditStorage";
 import { checkRateLimit, recordScan } from "@/utils/rateLimiter";
-import { calculateSmartPricing } from "@/utils/smartAccessV5";
+import { calculateScanCost } from "@/config/pricingConfig";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
@@ -62,8 +62,6 @@ const Index = () => {
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>(loadHistory);
-  const [auditConfigs, setAuditConfigs] = useState<Array<{id: string, label: string, engine_type: string, system_prompt: string, platform: string}>>([]);
-  const [selectedConfig, setSelectedConfig] = useState<string>("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("youtube");
   const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
   
@@ -82,43 +80,10 @@ const Index = () => {
     requiresDeepScan: boolean;
     pendingInput: any;
     patternResult: any;
+    videoDuration?: number;
+    scanCost?: number;
+    hasUserAPIKey?: boolean;
   } | null>(null);
-
-  // Fetch audit configs from database
-  useEffect(() => {
-    const fetchAuditConfigs = async () => {
-      try {
-        // @ts-ignore
-        const { data, error } = await supabase
-          .from("audit_configs")
-          .select("id, label, engine_type, system_prompt, platform")
-          .eq("is_active", true)
-          .order("created_at", { ascending: true });
-
-        if (error) throw error;
-        setAuditConfigs(data || []);
-        if (data && data.length > 0) {
-          setSelectedConfig(data[0].id);
-        }
-      } catch (error) {
-        console.error("Failed to fetch audit configs:", error);
-      }
-    };
-
-    fetchAuditConfigs();
-  }, []);
-
-  // Auto-select first config when platform changes
-  useEffect(() => {
-    if (auditConfigs.length > 0) {
-      const platformConfigs = auditConfigs.filter(
-        config => !config.platform || config.platform === selectedPlatform
-      );
-      if (platformConfigs.length > 0) {
-        setSelectedConfig(platformConfigs[0].id);
-      }
-    }
-  }, [selectedPlatform, auditConfigs]);
 
   // Check for pending/interrupted scans on mount
   useEffect(() => {
@@ -181,8 +146,8 @@ const Index = () => {
       setMetadata(fetchedMetadata);
       
       // Update pricing based on fetched duration
-      const pricing = calculateSmartPricing(fetchedMetadata.durationSeconds);
-      setCurrentScanCost(pricing.finalCost);
+      const pricing = calculateScanCost(fetchedMetadata.durationSeconds);
+      setCurrentScanCost(pricing);
 
       // If no user keys (BYOK), trigger coin deduction flow
       if (poolHealth.totalKeys === 0) {
@@ -262,6 +227,11 @@ const Index = () => {
       };
       setPendingScanInput(scanInput);
       
+      // Calculate scan cost
+      const poolHealth = checkPoolHealth();
+      const hasUserAPIKey = poolHealth.totalKeys > 0;
+      const scanCost = calculateScanCost(fetchedMetadata.durationSeconds || 0);
+      
       // Show pre-scan consent modal
       setPreScanResult({
         riskScore: preScanData.riskScore,
@@ -270,6 +240,9 @@ const Index = () => {
         requiresDeepScan: preScanData.requiresDeepScan,
         pendingInput: scanInput,
         patternResult: null,
+        videoDuration: fetchedMetadata.durationSeconds,
+        scanCost: hasUserAPIKey ? 0 : scanCost, // FREE if user has API key
+        hasUserAPIKey,
       });
       setShowPreScanModal(true);
       setIsScanning(false); // Stop scanning indicator, waiting for user choice
@@ -289,21 +262,13 @@ const Index = () => {
     setIsScanning(true);
 
     try {
-      const { data: success, error } = await supabase.rpc('deduct_user_coins', {
-        user_id_param: user.id,
-        amount: currentScanCost,
-        video_title_param: metadata?.title || "Video Scan"
-      });
-
-      if (error || !success) {
-        toast.error(`Coins deduction failed! You need ${currentScanCost} coins.`);
+      // Use CoinContext to deduct coins (safe with canAfford check)
+      const deducted = await spendCoins(currentScanCost, "scan_deep", `Video scan - ${metadata?.title || "Unknown"}`);
+      
+      if (!deducted) {
+        toast.error(`Insufficient coins! You need ${currentScanCost} coins.`);
         setIsScanning(false);
         return;
-      }
-
-      // Update UI balance instantly after database deduction
-      if (refetchBalance) {
-        await refetchBalance();
       }
 
       // Show professional success animation
@@ -332,16 +297,14 @@ const Index = () => {
         return;
       }
       
-      // Get selected audit config
-      const selectedAuditConfig = auditConfigs.find(c => c.id === selectedConfig);
+      // Use default config (audit configs removed)
+      toast.success(`Proceeding to Deep Scan...`);
       
-      toast.success(`Proceeding to Deep Scan with ${selectedAuditConfig?.label || 'default config'}...`);
-      
-      // Execute full hybrid scan with selected config's engine and prompt
+      // Execute full hybrid scan with default settings
       const result: DeepScanResult = await executeHybridScan(
         pendingScanInput,
-        selectedAuditConfig?.engine_type,
-        selectedAuditConfig?.system_prompt,
+        undefined, // No custom engine type
+        undefined, // No custom system prompt
         pendingScanInput.useSystemKeys // Use the coin-scan mode if applicable
       );
       
@@ -500,28 +463,6 @@ const Index = () => {
               <div className="container mx-auto px-6 pt-6 pb-2">
                 <PlatformSelector selectedPlatform={selectedPlatform} onSelect={setSelectedPlatform} />
               </div>
-              
-              {/* Audit Config Dropdown */}
-              {auditConfigs.length > 0 && (
-                <div className="container mx-auto px-6 pt-2 pb-2">
-                  <div className="max-w-2xl mx-auto">
-                    <Select value={selectedConfig} onValueChange={setSelectedConfig}>
-                      <SelectTrigger className="bg-slate-800/50 border-slate-700">
-                        <SelectValue placeholder="Select audit type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {auditConfigs
-                          .filter(config => !config.platform || config.platform === selectedPlatform)
-                          .map((config) => (
-                            <SelectItem key={config.id} value={config.id}>
-                              {config.label}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
               
               <HeroScan 
                 onScan={handleScan} 

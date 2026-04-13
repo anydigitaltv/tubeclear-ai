@@ -425,9 +425,9 @@ export const VideoScanProvider = ({ children }: { children: ReactNode }) => {
   const scanThumbnail = useCallback(async (thumbnailUrl: string, videoTitle: string): Promise<ThumbnailScanResult> => {
     // Check if paid user - uses Admin API with Vision support
     if (isPaidUser()) {
-      // Admin API has Vision support
+      // Admin API has Vision support - use gemini (supports vision)
       try {
-        const result = await callVisionAPI("openai", thumbnailUrl, THUMBNAIL_SCAN_PROMPT);
+        const result = await callVisionAPI("gemini", thumbnailUrl, THUMBNAIL_SCAN_PROMPT);
         if (result) {
           const parsed = JSON.parse(result);
           return {

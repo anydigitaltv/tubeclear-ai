@@ -29,6 +29,7 @@ export interface DeepScanResult extends ScanResult {
   requiresDeepScan: boolean;
   deepScanReason: string;
   aiDetectionConfidence?: number;
+  riskScore: number; // Added for verdict calculation
 }
 
 interface HybridScannerContextType {
@@ -172,6 +173,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
         analyzedAt: new Date().toISOString(),
         engineUsed: currentEngine || "gemini",
         platformId: input.platformId,
+        riskScore: patternResult.riskScore, // Add riskScore
         requiresDeepScan: false,
         deepScanReason: "Not required - metadata clean",
         videoTitle: input.title,
@@ -193,6 +195,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       
       const deepResult: DeepScanResult = {
         ...scanResult,
+        riskScore: patternResult.riskScore, // Add riskScore from pattern match
         requiresDeepScan: true,
         deepScanReason: patternResult.cleanStatus 
           ? "Visual/audio verification required" 
@@ -246,6 +249,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
           analyzedAt: new Date().toISOString(),
           engineUsed: currentEngine || "gemini",
           platformId: input.platformId,
+          riskScore: patternResult.riskScore, // Add riskScore
           requiresDeepScan: false,
           deepScanReason: "Metadata clean - no deep scan needed",
           videoTitle: input.title,
@@ -346,6 +350,7 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
       
       const deepResult: DeepScanResult = {
         ...scanResult,
+        riskScore: patternResult.riskScore, // Add riskScore from pattern match
         requiresDeepScan: true,
         deepScanReason: patternResult.cleanStatus 
           ? "Visual/audio verification required" 

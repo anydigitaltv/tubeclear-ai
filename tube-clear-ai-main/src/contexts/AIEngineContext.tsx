@@ -53,6 +53,12 @@ interface AIEngineContextType {
   isAnyKeyAvailable: (engineId: EngineId) => boolean;
   allPoolsExhausted: () => boolean;
   checkPoolHealth: () => { gemini: boolean; groq: boolean; totalKeys: number; activeKeys: number };
+  
+  // Helper methods for backward compatibility
+  isEngineReady: (engineId: EngineId) => boolean;
+  switchToNextEngine: () => void;
+  apiKeys: Record<EngineId, { key: string; status: KeyStatus }>;
+  allEnginesFailed: boolean;
 }
 
 const ENGINES: AIEngine[] = [
@@ -386,6 +392,47 @@ export const AIEngineProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [pools]);
 
+  // Helper: Check if engine is ready
+  const isEngineReady = useCallback((engineId: EngineId): boolean => {
+    return isAnyKeyAvailable(engineId);
+  }, [isAnyKeyAvailable]);
+
+  // Helper: Switch to next engine
+  const switchToNextEngine = useCallback(() => {
+    if (!currentEngine) return;
+    
+    const currentIndex = ENGINES.findIndex(e => e.id === currentEngine);
+    const nextIndex = (currentIndex + 1) % ENGINES.length;
+    const nextEngine = ENGINES[nextIndex];
+    
+    if (isAnyKeyAvailable(nextEngine.id)) {
+      setCurrentEngine(nextEngine.id);
+    }
+  }, [currentEngine, isAnyKeyAvailable]);
+
+  // Helper: Get apiKeys format (backward compatibility)
+  const apiKeys = useCallback((): Record<EngineId, { key: string; status: KeyStatus }> => {
+    const result: any = {};
+    for (const engine of ENGINES) {
+      const pool = pools[engine.id];
+      if (pool && pool.keys.length > 0) {
+        const activeKey = pool.keys[pool.activeKeyIndex];
+        if (activeKey && !activeKey.isExhausted) {
+          result[engine.id] = {
+            key: activeKey.key,
+            status: activeKey.status
+          };
+        }
+      }
+    }
+    return result;
+  }, [pools]);
+
+  // Helper: Check if all engines failed
+  const allEnginesFailed = useCallback((): boolean => {
+    return allPoolsExhausted();
+  }, [allPoolsExhausted]);
+
   return (
     <AIEngineContext.Provider
       value={{
@@ -403,6 +450,10 @@ export const AIEngineProvider = ({ children }: { children: ReactNode }) => {
         isAnyKeyAvailable,
         allPoolsExhausted,
         checkPoolHealth,
+        isEngineReady,
+        switchToNextEngine,
+        apiKeys: apiKeys(),
+        allEnginesFailed: allEnginesFailed(),
       }}
     >
       {children}

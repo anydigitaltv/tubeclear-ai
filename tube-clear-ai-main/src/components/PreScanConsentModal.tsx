@@ -2,7 +2,7 @@ import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertTriangle, XCircle, Scan, Shield } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Scan, Shield, Coins, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface PreScanConsentModalProps {
@@ -15,6 +15,9 @@ interface PreScanConsentModalProps {
     verdict: "PASS" | "FLAGGED" | "FAILED";
     issues: string[];
     requiresDeepScan: boolean;
+    videoDuration?: number; // Duration in seconds
+    scanCost?: number; // Coin cost for deep scan
+    hasUserAPIKey?: boolean; // Whether user has own API key
   } | null;
 }
 
@@ -87,15 +90,42 @@ export const PreScanConsentModal = ({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+              {/* Verdict Display */}
               <div className="bg-slate-800/50 rounded-lg p-3">
-                <div className="text-2xl font-bold text-white">{preScanResult.riskScore}/100</div>
-                <div className="text-xs text-slate-400">Risk Score</div>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <Badge variant="outline" className={`${config.color} border-current`}>
+                <Badge variant="outline" className={`${config.color} border-current text-lg px-4 py-2`}>
                   {preScanResult.verdict}
                 </Badge>
-                <div className="text-xs text-slate-400 mt-1">Verdict</div>
+                <div className="text-xs text-slate-400 mt-2">Final Verdict</div>
+                <div className="text-xs text-slate-500 mt-1">Faisla</div>
+              </div>
+              
+              {/* Video Duration & Cost */}
+              <div className="bg-slate-800/50 rounded-lg p-3 space-y-2">
+                {preScanResult.videoDuration && (
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <Clock className="w-4 h-4 text-blue-400" />
+                    <div>
+                      <div className="text-sm font-semibold">
+                        {Math.floor(preScanResult.videoDuration / 60)}m {preScanResult.videoDuration % 60}s
+                      </div>
+                      <div className="text-xs text-slate-500">Duration</div>
+                    </div>
+                  </div>
+                )}
+                
+                {preScanResult.scanCost !== undefined && (
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <Coins className="w-4 h-4 text-yellow-400" />
+                    <div>
+                      <div className="text-sm font-semibold">
+                        {preScanResult.hasUserAPIKey ? "FREE" : `${preScanResult.scanCost} Coins`}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {preScanResult.hasUserAPIKey ? "Your API Key" : "Deep Scan Cost"}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -130,6 +160,32 @@ export const PreScanConsentModal = ({
                 <p className="text-xs text-slate-400 italic">
                   Video aur audio ka mukammal jaiza lene ke liye Deep Scan ki tajweez ki jati hai.
                 </p>
+                
+                {/* Coin cost info */}
+                {preScanResult.scanCost !== undefined && !preScanResult.hasUserAPIKey && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                    <p className="text-sm text-yellow-400">
+                      💰 <strong>Deep Scan Cost:</strong> {preScanResult.scanCost} coins
+                      {preScanResult.videoDuration && (
+                        <span className="ml-2 text-xs">(Based on {Math.floor(preScanResult.videoDuration / 60)}m video)</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-yellow-500/80 mt-1">
+                      Apni API key add karke FREE scans pa sakte hain!
+                    </p>
+                  </div>
+                )}
+                
+                {preScanResult.hasUserAPIKey && (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <p className="text-sm text-green-400">
+                      ✅ <strong>Deep Scan is FREE</strong> - Using your API key
+                    </p>
+                    <p className="text-xs text-green-500/80 mt-1">
+                      Aapki API key se scan ho raha hai - koi coins nahi lagenge
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-2">
                   <Button
