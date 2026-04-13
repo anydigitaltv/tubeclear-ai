@@ -243,6 +243,7 @@ const Index = () => {
         platformId: platform,
         title: fetchedMetadata.title,
         tags: safeTags,
+        thumbnail: fetchedMetadata.thumbnail,
         description: fetchedMetadata.description,
         durationSeconds: fetchedMetadata.durationSeconds,
         videoUrl: url,
@@ -311,7 +312,7 @@ const Index = () => {
       // Wait for animation to finish before starting scan
       setTimeout(() => {
         setShowCoinSuccess(false);
-        startScanProcess(pendingScanParams.url, pendingScanParams.platformId, true);
+        startScanProcess(pendingScanParams.url, pendingScanParams.platformId, true, metadata || undefined);
       }, 2500);
       
     } catch (err) {
@@ -370,7 +371,7 @@ const Index = () => {
       await saveAuditReport({
         video_url: pendingScanInput.videoUrl,
         video_title: pendingScanInput.title,
-        thumbnail_url: metadata?.thumbnail,
+        thumbnail_url: pendingScanInput.thumbnail,
         platform: pendingScanInput.platformId,
         overall_risk: result.riskScore,
         result_json: result,
@@ -446,7 +447,7 @@ const Index = () => {
       await saveAuditReport({
         video_url: preScanResult.pendingInput.videoUrl,
         video_title: preScanResult.pendingInput.title,
-        thumbnail_url: metadata?.thumbnail,
+        thumbnail_url: preScanResult.pendingInput.thumbnail,
         platform: preScanResult.pendingInput.platformId,
         overall_risk: preScanResult.riskScore,
         result_json: { ...preScanResult, isMetadataOnly: true },
