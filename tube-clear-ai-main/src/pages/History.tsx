@@ -32,6 +32,7 @@ const History = () => {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<AuditReport | null>(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Fetch audits based on auth mode
   useEffect(() => {
@@ -148,11 +149,6 @@ const History = () => {
   };
 
   const handleDelete = async (auditId: string) => {
-    // Show confirmation
-    const confirmed = window.confirm("Are you sure you want to delete this scan? This action cannot be undone.");
-    
-    if (!confirmed) return;
-
     setDeleting(auditId);
     try {
       if (!isGuest && user) {
@@ -167,15 +163,26 @@ const History = () => {
         toast.success("Scan deleted successfully");
       } else {
         // Guest mode: Delete from local storage
-        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-        const guestAudits = stored ? JSON.parse(stored) : [];
-        const updated = guestAudits.filter((a: any) => a.id !== auditId);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-        toast.success("Scan deleted from history");
+        try {
+          const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (stored) {
+            const guestAudits = JSON.parse(stored);
+            if (Array.isArray(guestAudits)) {
+              const updated = guestAudits.filter((a: any) => a.id !== auditId);
+              localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+              toast.success("Scan deleted from history");
+            }
+          }
+        } catch (storageError) {
+          console.error("Local storage delete failed:", storageError);
+          localStorage.removeItem(LOCAL_STORAGE_KEY); // Clear corrupted data
+          throw new Error("Local storage access failed");
+        }
       }
 
       // Update UI immediately
       setAudits(prev => prev.filter(a => a.id !== auditId));
+      setDeleteConfirmId(null);
     } catch (error: any) {
       console.error("Error deleting audit:", error);
       toast.error("Failed to delete scan");
@@ -381,9 +388,8 @@ const History = () => {
                         variant="outline"
                         size="icon"
                         className="shrink-0 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(audit.id);
+                        onClick={() => {
+                          setDeleteConfirmId(audit.id);
                         }}
                         disabled={deleting === audit.id}
                       >
@@ -467,6 +473,31 @@ const History = () => {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              Confirm Delete
+            </DialogTitle>
+            <DialogDescription className="py-3">
+              Kya aap waqai is scan report ko delete karna chahte hain? Ye amal wapas nahi liya ja sakay ga.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+              disabled={!!deleting}
+            >
+              {deleting ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

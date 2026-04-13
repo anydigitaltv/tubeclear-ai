@@ -34,9 +34,6 @@ import { toast } from "sonner";
 import CoinSuccessAnimation from "@/components/CoinSuccessAnimation";
 import type { PlatformId } from "@/contexts/PlatformContext";
 
-// Store pending scan input for modal callbacks
-let pendingScanInput: any = null;
-
 const HISTORY_KEY = "tubeclear_scan_history";
 
 const loadHistory = (): ScanHistoryItem[] => {
@@ -54,11 +51,12 @@ const saveHistory = (history: ScanHistoryItem[]) => {
 const Index = () => {
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
-  const { balance, spendCoins } = useCoins();
+  const { balance, spendCoins, refetchBalance } = useCoins();
   const { fetchMetadataWithFailover, getLastFailoverResult } = useMetadataFetcher();
   const { executeHybridScan, executePreScanOnly, generateWhyAnalysis } = useHybridScanner();
   const { checkPoolHealth } = useAIWithRotation();
   
+  const [pendingScanInput, setPendingScanInput] = useState<any>(null);
   const [activeSection, setActiveSection] = useState("scan");
   const [isScanning, setIsScanning] = useState(false);
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
@@ -171,74 +169,97 @@ const Index = () => {
 
   // Check for keys and start scan workflow
   const handleScan = async (url: string, platformId: string) => {
-    const poolHealth = checkPoolHealth();
-    
-    // If no user keys (BYOK), trigger coin deduction flow
-    if (poolHealth.totalKeys === 0) {
-      if (isGuest) {
-        toast.error("Bhai, Guest mode mein coins scan ke liye login zaroori hai ya apni API key add karein.");
-        return;
-      }
-      
-      setPendingScanParams({ url, platformId });
-      setIsCoinModalOpen(true);
-      return;
-    }
-
-    // If keys exist, proceed directly
-    startScanProcess(url, platformId);
-  };
-
-  const startScanProcess = async (url: string, platformId: string) => {
     setIsScanning(true);
-    setAuditReport(null);
     try {
-      // STEP 2: Use selected platform from UI
-      const platform: PlatformId = selectedPlatform as PlatformId;
+      const poolHealth = checkPoolHealth();
       
-      // STEP 3: Fetch metadata with 7-engine failover
+      // Use provided platformId to fetch metadata
+      const platform: PlatformId = platformId as PlatformId;
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
       if (!fetchedMetadata) throw new Error("Metadata fetch failed");
       
       setMetadata(fetchedMetadata);
+      
+      // Update pricing based on fetched duration
+      const pricing = calculateSmartPricing(fetchedMetadata.durationSeconds);
+      setCurrentScanCost(pricing.finalCost);
+
+      // If no user keys (BYOK), trigger coin deduction flow
+      if (poolHealth.totalKeys === 0) {
+        if (isGuest) {
+          toast.error("Bhai, Guest mode mein coins scan ke liye login zaroori hai ya apni API key add karein.");
+          setIsScanning(false);
+          return;
+        }
+        
+        setPendingScanParams({ url, platformId });
+        setIsCoinModalOpen(true);
+        setIsScanning(false);
+        return;
+      }
+
+      startScanProcess(url, platformId, false, fetchedMetadata);
+    } catch (error) {
+      console.error('Initial metadata fetch failed:', error);
+      toast.error('Video details nahi mil saken. URL check karein.');
+      setIsScanning(false);
+    }
+  };
+
+  const startScanProcess = async (url: string, platformId: string, useSystemKeys: boolean = false, preFetchedMetadata?: VideoMetadata) => {
+    setIsScanning(true);
+    setAuditReport(null);
+    try {
+      // Use provided platformId instead of state for consistency
+      const platform: PlatformId = platformId as PlatformId;
+
+      // Fix: Use pre-fetched metadata to avoid redundant API call due to async state update
+      let fetchedMetadata = preFetchedMetadata || metadata;
+      if (!fetchedMetadata) {
+        fetchedMetadata = await fetchMetadataWithFailover(url, platform);
+        if (!fetchedMetadata) throw new Error("Metadata fetch failed");
+        setMetadata(fetchedMetadata);
+      }
+
+      const videoId = url.split('/').filter(Boolean).pop() || 'unknown';
+      const safeTags = Array.isArray(fetchedMetadata.tags) ? fetchedMetadata.tags : [];
 
       // Save to Pending Vault immediately in case of interruption
       await vault.savePendingScan({
-        videoId: url.split('/').filter(Boolean).pop() || 'unknown',
+        videoId,
         platformId: platform,
         title: fetchedMetadata.title,
         description: fetchedMetadata.description,
-        tags: fetchedMetadata.tags,
+        tags: safeTags,
         thumbnail: fetchedMetadata.thumbnail,
         videoUrl: url
       });
 
-      // NEW: Calculate dynamic cost based on video duration
-      const pricing = calculateSmartPricing(fetchedMetadata.durationSeconds);
-      setCurrentScanCost(pricing.finalCost);
       
       // NEW STEP 4: Run Pre-Scan only (Stages 1 & 2)
       toast.info("Running Pre-Scan analysis...");
       const preScanData = await executePreScanOnly({
-        videoId: url.split('/').filter(Boolean).pop() || 'unknown',
+        videoId,
         platformId: platform,
         title: fetchedMetadata.title,
-        tags: fetchedMetadata.tags || [],
+        tags: safeTags,
         description: fetchedMetadata.description,
         durationSeconds: fetchedMetadata.durationSeconds,
         videoUrl: url,
       });
       
       // Store pending input for modal callbacks
-      pendingScanInput = {
-        videoId: url.split('/').filter(Boolean).pop() || 'unknown',
+      const scanInput = {
+        videoId,
         platformId: platform,
         title: fetchedMetadata.title,
-        tags: fetchedMetadata.tags,
+        tags: safeTags,
         description: fetchedMetadata.description,
         durationSeconds: fetchedMetadata.durationSeconds,
         videoUrl: url,
+        useSystemKeys: useSystemKeys
       };
+      setPendingScanInput(scanInput);
       
       // Show pre-scan consent modal
       setPreScanResult({
@@ -246,7 +267,7 @@ const Index = () => {
         verdict: getFinalVerdict(preScanData.riskScore, platform),
         issues: preScanData.issues || [],
         requiresDeepScan: preScanData.requiresDeepScan,
-        pendingInput: pendingScanInput,
+        pendingInput: scanInput,
         patternResult: null,
       });
       setShowPreScanModal(true);
@@ -280,7 +301,9 @@ const Index = () => {
       }
 
       // Update UI balance instantly after database deduction
-      await refetchBalance();
+      if (refetchBalance) {
+        await refetchBalance();
+      }
 
       // Show professional success animation
       setShowCoinSuccess(true);
@@ -292,6 +315,7 @@ const Index = () => {
       }, 2500);
       
     } catch (err) {
+      toast.error("Transaction mein masla aya. Dobara koshish karein.");
       setIsScanning(false);
     }
   };
@@ -385,51 +409,70 @@ const Index = () => {
       toast.error('Deep scan failed. Please try again.');
     } finally {
       setIsScanning(false);
-      pendingScanInput = null;
+      setPendingScanInput(null);
     }
   };
 
   // Handle user choosing to skip deep scan
-  const handleSkipDeepScan = () => {
+  const handleSkipDeepScan = async () => {
     setShowPreScanModal(false);
     
     if (!preScanResult) return;
     
-    // Create a lightweight report from pre-scan results only
-    const lightweightReport: FullReport = {
-      videoUrl: preScanResult.pendingInput.videoUrl,
-      verifiedTimestamp: new Date().toISOString(),
-      platform: preScanResult.pendingInput.platformId,
-      overallRisk: preScanResult.riskScore,
-      aiDetected: false,
-      disclosureVerified: preScanResult.riskScore < 20,
-      whyAnalysis: {
-        riskReason: `Pre-scan detected ${preScanResult.issues.length} issue(s) in metadata.`,
-        policyLinks: [],
-        exactViolations: preScanResult.issues.map(issue => ({
-          text: issue,
-          severity: preScanResult.riskScore > 50 ? "high" : "medium"
-        })),
-        disclosureStatus: preScanResult.riskScore < 20 ? "verified" : "missing"
-      },
-      shareable: true
-    };
-    
-    setAuditReport(lightweightReport);
-    
-    // Add to history
-    const newItem: ScanHistoryItem = {
-      url: preScanResult.pendingInput.videoUrl,
-      title: preScanResult.pendingInput.title,
-      risk: preScanResult.riskScore,
-      date: new Date().toLocaleDateString(),
-    };
-    const updated = [newItem, ...scanHistory.filter((h) => h.url !== newItem.url)].slice(0, 20);
-    setScanHistory(updated);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-    
-    toast.success("Pre-Scan Complete! (Deep scan skipped)");
-    pendingScanInput = null;
+    try {
+      // Create a lightweight report from pre-scan results only
+      const lightweightReport: FullReport = {
+        videoUrl: preScanResult.pendingInput.videoUrl,
+        verifiedTimestamp: new Date().toISOString(),
+        platform: preScanResult.pendingInput.platformId,
+        overallRisk: preScanResult.riskScore,
+        aiDetected: false,
+        disclosureVerified: preScanResult.riskScore < 20,
+        whyAnalysis: {
+          riskReason: `Pre-scan detected ${preScanResult.issues.length} issue(s) in metadata.`,
+          policyLinks: [],
+          exactViolations: preScanResult.issues.map(issue => ({
+            text: issue,
+            severity: preScanResult.riskScore > 50 ? "high" : "medium"
+          })),
+          disclosureStatus: preScanResult.riskScore < 20 ? "verified" : "missing"
+        },
+        shareable: true
+      };
+      
+      setAuditReport(lightweightReport);
+      
+      // Save to permanent history even if deep scan is skipped
+      await saveAuditReport({
+        video_url: preScanResult.pendingInput.videoUrl,
+        video_title: preScanResult.pendingInput.title,
+        thumbnail_url: metadata?.thumbnail,
+        platform: preScanResult.pendingInput.platformId,
+        overall_risk: preScanResult.riskScore,
+        result_json: { ...preScanResult, isMetadataOnly: true },
+      }, isGuest, user?.id);
+
+      // Add to history
+      const newItem: ScanHistoryItem = {
+        url: preScanResult.pendingInput.videoUrl,
+        title: preScanResult.pendingInput.title,
+        risk: preScanResult.riskScore,
+        date: new Date().toLocaleDateString(),
+      };
+      const updated = [newItem, ...scanHistory.filter((h) => h.url !== newItem.url)].slice(0, 20);
+      setScanHistory(updated);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+      
+      // Refresh My Audits section
+      setAuditRefreshTrigger(prev => prev + 1);
+
+      toast.success("Pre-Scan Complete! (Deep scan skipped)");
+    } catch (error) {
+      console.error("Failed to save skipped scan:", error);
+      toast.error("Scan results save nahi ho sakay.");
+    } finally {
+      setPendingScanInput(null);
+    }
   };
 
   return (

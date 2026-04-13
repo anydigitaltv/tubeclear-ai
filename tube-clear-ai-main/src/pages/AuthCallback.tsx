@@ -25,7 +25,7 @@ const AuthCallback = () => {
         if (errorParam) {
           console.error('AuthCallback: OAuth error:', errorDescription || errorParam);
           setError(errorDescription || errorParam);
-          setTimeout(() => navigate("/"), 3000);
+          setTimeout(() => navigate("/", { replace: true }), 3000);
           return;
         }
 
@@ -41,7 +41,7 @@ const AuthCallback = () => {
           if (sessionError) {
             console.error('AuthCallback: Session exchange failed:', sessionError.message);
             setError(sessionError.message);
-            setTimeout(() => navigate("/"), 3000);
+            setTimeout(() => navigate("/", { replace: true }), 3000);
             return;
           }
 
@@ -50,7 +50,7 @@ const AuthCallback = () => {
           
           console.log('AuthCallback: Session created successfully, redirecting to dashboard');
           // Redirect to dashboard
-          navigate("/dashboard");
+          navigate("/dashboard", { replace: true });
           return;
         }
 
@@ -64,18 +64,18 @@ const AuthCallback = () => {
         
         if (session) {
           console.log('AuthCallback: Existing session found, redirecting to dashboard');
-          navigate("/dashboard");
+          navigate("/dashboard", { replace: true });
           return;
         }
 
         // No tokens found
         console.warn('AuthCallback: No authentication tokens found');
         setError("No authentication tokens found. Please try signing in again.");
-        setTimeout(() => navigate("/"), 3000);
+        setTimeout(() => navigate("/", { replace: true }), 3000);
       } catch (err) {
         console.error("AuthCallback unexpected error:", err);
         setError("An unexpected error occurred during authentication.");
-        setTimeout(() => navigate("/"), 3000);
+        setTimeout(() => navigate("/", { replace: true }), 3000);
       }
     };
 

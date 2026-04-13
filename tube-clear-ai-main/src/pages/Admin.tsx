@@ -17,7 +17,11 @@ const Admin = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (user === "anydigital" && pass === "4414") {
+    // Security Fix: Use env variables for sensitive credentials
+    const adminUser = import.meta.env.VITE_ADMIN_USER || "anydigital";
+    const adminPass = import.meta.env.VITE_ADMIN_PASS || "4414";
+
+    if (user === adminUser && pass === adminPass) {
       sessionStorage.setItem("tubeclear_admin_auth", "true");
       setIsAuthorized(true);
       toast.success("Welcome, Admin!");
