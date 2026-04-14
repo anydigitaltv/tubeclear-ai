@@ -27,6 +27,8 @@ import { MetadataFetcherProvider } from "@/contexts/MetadataFetcherContext";
 import { PolicyWatcherProvider } from "@/contexts/PolicyWatcherContext";
 import { PolicySyncProvider } from "@/contexts/PolicySyncContext";
 import { HybridScannerProvider } from "@/contexts/HybridScannerContext";
+import { LicenseKeyProvider } from "@/contexts/LicenseKeyContext";
+import { LivePolicyEngineProvider } from "@/contexts/LivePolicyEngineContext";
 
 const queryClient = new QueryClient();
 
@@ -45,7 +47,9 @@ export const AppProviders = ({ children }: { children: ReactNode }) => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <CoinProvider>
+          <LicenseKeyProvider>
+            <LivePolicyEngineProvider>
+              <CoinProvider>
             <NotificationProvider>
               <GlobalMarketProvider>
                 <PlatformProvider>
@@ -96,6 +100,8 @@ export const AppProviders = ({ children }: { children: ReactNode }) => {
               </GlobalMarketProvider>
             </NotificationProvider>
           </CoinProvider>
+            </LivePolicyEngineProvider>
+          </LicenseKeyProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

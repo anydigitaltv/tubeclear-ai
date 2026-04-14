@@ -128,6 +128,14 @@ const Index = () => {
       navigate("/history");
       return;
     }
+    if (section === "market") {
+      navigate("/market");
+      return;
+    }
+    if (section === "license-keys") {
+      navigate("/license-keys");
+      return;
+    }
     setActiveSection(section);
     sectionRefs[section as keyof typeof sectionRefs]?.current?.scrollIntoView({ behavior: "smooth" });
   };

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { usePolicyWatcher, type LivePolicy } from "./PolicyWatcherContext";
+import { useLivePolicyEngine } from "./LivePolicyEngineContext";
 import { useAIEngines, type EngineId } from "./AIEngineContext";
 import { useVideoScan, type VideoScanInput, type ScanResult, getFinalVerdict, type FinalVerdict } from "./VideoScanContext";
 import { optimizeScanWorkflow, MemoryCacheManager, PersistentCache } from "@/utils/memoryCacheSystem";
@@ -80,6 +81,8 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
     getLatestPolicyVersion 
   } = usePolicyWatcher();
   
+  const { checkContent, getPoliciesForPlatform } = useLivePolicyEngine();
+  
   const { isEngineReady, currentEngine } = useAIEngines();
   const { scanVideo } = useVideoScan();
   
@@ -107,42 +110,37 @@ export const HybridScannerProvider = ({ children }: { children: ReactNode }) => 
     setCurrentStage("pattern");
     setScanProgress(45);
     
-    const policies = livePolicies[platformId] || livePolicies[platformId as keyof typeof livePolicies] || [];
-    const violations: LivePolicy[] = [];
-    const matchedKeywords: string[] = [];
+    // Use NEW Live Policy Engine for platform-specific checking
+    const contentToCheck = `${metadata.title} ${metadata.description} ${metadata.tags.join(' ')}`;
+    const { violations, score } = checkContent(contentToCheck, platformId);
     
-    // Combine metadata for analysis
-    const fullText = `${metadata.title} ${metadata.description} ${metadata.tags.join(' ')}`.toLowerCase();
+    // Get all policies for this platform
+    const platformPolicies = getPoliciesForPlatform(platformId);
     
-    // Check each live policy
-    for (const policy of policies) {
-      const hasViolation = policy.keywords.some(keyword => 
-        fullText.includes(keyword.toLowerCase())
-      );
-      
-      if (hasViolation) {
-        violations.push(policy);
-        matchedKeywords.push(...policy.keywords.filter(k => 
-          fullText.includes(k.toLowerCase())
-        ));
-      }
-    }
-    
-    // Calculate risk score based on violations
-    const riskScore = Math.min(100, violations.length * 25 + matchedKeywords.length * 5);
+    // Calculate risk score
+    const riskScore = 100 - score; // Invert: higher score = less risk
     const cleanStatus = violations.length === 0 && riskScore < 20;
     
     const result: PatternMatchResult = {
-      violations,
+      violations: violations.map(v => ({
+        ...v,
+        lastVerified: v.lastUpdated,
+      })) as LivePolicy[],
       riskScore,
-      matchedKeywords: [...new Set(matchedKeywords)], // Unique
+      matchedKeywords: violations.flatMap(v => v.keywords),
       cleanStatus,
     };
     
-    console.log('🔍 Pattern Match Result:', { platformId, riskScore, cleanStatus, violations: violations.length });
+    console.log('🔍 Pattern Match Result:', { 
+      platformId, 
+      riskScore, 
+      cleanStatus, 
+      violations: violations.length,
+      totalPolicies: platformPolicies.length 
+    });
     
     return result;
-  }, [livePolicies]);
+  }, [checkContent, getPoliciesForPlatform]);
 
   // STAGE 3: Deep AI Scan (only if needed)
   const executeDeepScan = useCallback(async (
