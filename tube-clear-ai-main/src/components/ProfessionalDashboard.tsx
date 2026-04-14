@@ -647,13 +647,13 @@ export const ProfessionalDashboard = ({
                             <Badge 
                               variant="outline" 
                               className={`text-xs ${
-                                policy.severity === 'critical' ? 'bg-red-500/20 border-red-500/50 text-red-400' :
-                                policy.severity === 'high' ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' :
-                                policy.severity === 'medium' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400' :
-                                'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                                policy.status === "PASS"
+                                  ? "bg-green-500/20 border-green-500/50 text-green-400"
+                                  : "bg-red-500/20 border-red-500/50 text-red-400"
                               }`}
                             >
-                              {policy.severity.toUpperCase()}
+                              <Shield className="w-3 h-3 mr-1" />
+                              {policy.status === "PASS" ? "PASS" : "FAIL"}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2 text-sm">
