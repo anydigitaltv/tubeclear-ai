@@ -1,33 +1,16 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
-import HeroScan from "@/components/HeroScan";
-import UniversalAuditReport from "@/components/UniversalAuditReport";
-import ScanSkeleton from "@/components/ScanSkeleton";
 import RecentScans, { type ScanHistoryItem } from "@/components/RecentScans";
-import ShareButton from "@/components/ShareButton";
-import ScrollReveal from "@/components/ScrollReveal";
-import ViolationAlertPanel from "@/components/ViolationAlertPanel";
-import PreScanConsentModal from "@/components/PreScanConsentModal";
-import PlatformSelector from "@/components/PlatformSelector";
 import MyAuditsSection from "@/components/MyAuditsSection";
-import { CoinDeductionModal } from "@/utils/CoinDeductionModal";
-import { saveAuditReport } from "@/utils/auditStorage";
-import { checkRateLimit, recordScan } from "@/utils/rateLimiter";
-import { calculateScanCost } from "@/config/pricingConfig";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
-import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
-import { useCoins, type CoinTransactionType } from "@/contexts/CoinContext";
+import { Shield, Youtube, Music2, Facebook, Instagram, PlayCircle, ArrowRight, Sparkles, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAIWithRotation } from "@/utils/apiRotationWrapper";
 import { vault } from "@/utils/historicalVault";
-import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import CoinSuccessAnimation from "@/components/CoinSuccessAnimation";
-import type { PlatformId } from "@/contexts/PlatformContext";
 
 const HISTORY_KEY = "tubeclear_scan_history";
 
@@ -39,46 +22,12 @@ const loadHistory = (): ScanHistoryItem[] => {
   }
 };
 
-const saveHistory = (history: ScanHistoryItem[]) => {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
-};
-
 const Index = () => {
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
-  const { balance, spendCoins, refetchBalance } = useCoins();
-  const { fetchMetadataWithFailover, getLastFailoverResult } = useMetadataFetcher();
-  const { executeHybridScan, executePreScanOnly, generateWhyAnalysis } = useHybridScanner();
-  const { checkPoolHealth } = useAIWithRotation();
-  
-  const [pendingScanInput, setPendingScanInput] = useState<any>(null);
   const [activeSection, setActiveSection] = useState("scan");
-  const [isScanning, setIsScanning] = useState(false);
-  const [auditReport, setAuditReport] = useState<FullReport | null>(null);
-  const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>(loadHistory);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>("youtube");
   const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
-  
-  // Coin system state
-  const [isCoinModalOpen, setIsCoinModalOpen] = useState(false);
-  const [pendingScanParams, setPendingScanParams] = useState<{url: string, platformId: string} | null>(null);
-  const [currentScanCost, setCurrentScanCost] = useState(10);
-  const [showCoinSuccess, setShowCoinSuccess] = useState(false);
-  
-  // Pre-scan modal state
-  const [showPreScanModal, setShowPreScanModal] = useState(false);
-  const [preScanResult, setPreScanResult] = useState<{
-    riskScore: number;
-    verdict: FinalVerdict;
-    issues: string[];
-    requiresDeepScan: boolean;
-    pendingInput: any;
-    patternResult: any;
-    videoDuration?: number;
-    scanCost?: number;
-    hasUserAPIKey?: boolean;
-  } | null>(null);
 
   // Check for pending/interrupted scans on mount
   useEffect(() => {
@@ -86,29 +35,19 @@ const Index = () => {
       const pending = await vault.getPendingScans();
       if (pending && pending.length > 0) {
         const latest = pending[0];
-        toast.info(`Interrupted scan found: ${latest.title}. Resuming...`, {
+        toast.info(`Interrupted scan found: ${latest.title}`, {
+          description: "Click to resume your scan",
           action: {
-            label: "Resume Now",
+            label: "Resume",
             onClick: () => {
-              setMetadata({
-                title: latest.title,
-                description: latest.description,
-                tags: latest.tags,
-                thumbnail: latest.thumbnail,
-                fetchedFrom: "native"
-              });
-              handleScan(latest.videoUrl, latest.platformId);
+              navigate(`/scan/${latest.platformId}`);
             }
           }
         });
       }
     };
     checkPendingScans();
-  }, []);
-
-  const sectionRefs = {
-    scan: useRef<HTMLDivElement>(null),
-  };
+  }, [navigate]);
 
   const handleNavigate = (section: string) => {
     if (section === "dashboard") {
@@ -143,340 +82,73 @@ const Index = () => {
       navigate("/newsroom");
       return;
     }
+    if (section === "diff-engine") {
+      navigate("/diff-engine");
+      return;
+    }
+    if (section === "policy-monitor") {
+      navigate("/policy-monitor");
+      return;
+    }
+    if (section === "api-key-manager") {
+      navigate("/api-key-manager");
+      return;
+    }
     setActiveSection(section);
-    sectionRefs[section as keyof typeof sectionRefs]?.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Check for keys and start scan workflow
-  const handleScan = async (url: string, platformId: string) => {
-    setIsScanning(true);
-    try {
-      console.log('🎯 Starting scan for:', url, platformId);
-      
-      const poolHealth = checkPoolHealth();
-      
-      // Use provided platformId to fetch metadata
-      const platform: PlatformId = platformId as PlatformId;
-      const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
-      
-      console.log('📡 Metadata fetch result:', fetchedMetadata);
-      
-      if (!fetchedMetadata || !fetchedMetadata.title) {
-        console.error('❌ Metadata fetch returned null/empty');
-        throw new Error("Metadata fetch failed - no data returned");
-      }
-      
-      setMetadata(fetchedMetadata);
-      
-      // Update pricing based on fetched duration
-      const pricing = calculateScanCost(fetchedMetadata.durationSeconds || 0);
-      setCurrentScanCost(pricing);
-
-      // If no user keys (BYOK), trigger coin deduction flow
-      if (poolHealth.totalKeys === 0) {
-        if (isGuest) {
-          toast.error("Bhai, Guest mode mein coins scan ke liye login zaroori hai ya apni API key add karein.");
-          setIsScanning(false);
-          return;
-        }
-        
-        setPendingScanParams({ url, platformId });
-        setIsCoinModalOpen(true);
-        setIsScanning(false);
-        return;
-      }
-
-      startScanProcess(url, platformId, false, fetchedMetadata);
-    } catch (error) {
-      console.error('Initial metadata fetch failed:', error);
-      toast.error('Video details nahi mil saken. URL check karein.');
-      setIsScanning(false);
-    }
-  };
-
-  const startScanProcess = async (url: string, platformId: string, useSystemKeys: boolean = false, preFetchedMetadata?: VideoMetadata) => {
-    setIsScanning(true);
-    setAuditReport(null);
-    try {
-      // Use provided platformId instead of state for consistency
-      const platform: PlatformId = platformId as PlatformId;
-
-      // Fix: Use pre-fetched metadata to avoid redundant API call due to async state update
-      let fetchedMetadata = preFetchedMetadata || metadata;
-      if (!fetchedMetadata) {
-        console.log('📡 Fetching metadata for:', url, platform);
-        fetchedMetadata = await fetchMetadataWithFailover(url, platform);
-        console.log('📡 Metadata fetch result:', fetchedMetadata);
-        
-        if (!fetchedMetadata || !fetchedMetadata.title) {
-          console.error('❌ Metadata fetch returned null/empty');
-          throw new Error("Metadata fetch failed - no data returned");
-        }
-        setMetadata(fetchedMetadata);
-      }
-
-      const videoId = url.split('/').filter(Boolean).pop() || 'unknown';
-      const safeTags = Array.isArray(fetchedMetadata.tags) ? fetchedMetadata.tags : [];
-
-      // Save to Pending Vault immediately in case of interruption
-      await vault.savePendingScan({
-        videoId,
-        platformId: platform,
-        title: fetchedMetadata.title,
-        description: fetchedMetadata.description,
-        tags: safeTags,
-        thumbnail: fetchedMetadata.thumbnail,
-        videoUrl: url
-      });
-
-      
-      // NEW STEP 4: Run Pre-Scan only (Stages 1 & 2)
-      toast.info("Running Pre-Scan analysis...");
-      
-      try {
-        const preScanData = await executePreScanOnly({
-          videoId,
-          platformId: platform,
-          title: fetchedMetadata.title,
-          tags: safeTags,
-          thumbnail: fetchedMetadata.thumbnail,
-          description: fetchedMetadata.description,
-          durationSeconds: fetchedMetadata.durationSeconds,
-          videoUrl: url,
-        });
-        
-        console.log('✅ Pre-scan completed:', preScanData);
-        
-        // Store pending input for modal callbacks
-        const scanInput = {
-          videoId,
-          platformId: platform,
-          title: fetchedMetadata.title,
-          tags: safeTags,
-          description: fetchedMetadata.description,
-          durationSeconds: fetchedMetadata.durationSeconds,
-          videoUrl: url,
-          useSystemKeys: useSystemKeys
-        };
-        setPendingScanInput(scanInput);
-        
-        // Calculate scan cost
-        const poolHealth = checkPoolHealth();
-        const hasUserAPIKey = poolHealth.totalKeys > 0;
-        const scanCost = calculateScanCost(fetchedMetadata.durationSeconds || 0);
-        
-        // Show pre-scan consent modal
-        setPreScanResult({
-          riskScore: preScanData.riskScore,
-          verdict: getFinalVerdict(preScanData.riskScore, platform),
-          issues: preScanData.issues || [],
-          requiresDeepScan: preScanData.requiresDeepScan,
-          pendingInput: scanInput,
-          patternResult: null,
-          videoDuration: fetchedMetadata.durationSeconds,
-          scanCost: hasUserAPIKey ? 0 : scanCost, // FREE if user has API key
-          hasUserAPIKey,
-        });
-        setShowPreScanModal(true);
-        setIsScanning(false); // Stop scanning indicator, waiting for user choice
-        
-      } catch (error) {
-        console.error('Pre-scan failed:', error);
-        toast.error('Pre-scan failed. Please try again.');
-        setIsScanning(false);
-      }
-      
-    } catch (error) {
-      console.error('Initial metadata fetch failed:', error);
-      toast.error('Video details nahi mil saken. URL check karein.');
-      setIsScanning(false);
-    }
-  };
-
-  // Handle confirmed coin scan
-  const handleConfirmCoinScan = async () => {
-    if (!pendingScanParams || !user) return;
-    
-    setIsCoinModalOpen(false);
-    setIsScanning(true);
-
-    try {
-      // Use CoinContext to deduct coins (safe with canAfford check)
-      const deducted = await spendCoins(currentScanCost, "scan_deep", `Video scan - ${metadata?.title || "Unknown"}`);
-      
-      if (!deducted) {
-        toast.error(`Insufficient coins! You need ${currentScanCost} coins.`);
-        setIsScanning(false);
-        return;
-      }
-
-      // Show professional success animation
-      setShowCoinSuccess(true);
-      
-      // Wait for animation to finish before starting scan
-      setTimeout(() => {
-        setShowCoinSuccess(false);
-        startScanProcess(pendingScanParams.url, pendingScanParams.platformId, true, metadata || undefined);
-      }, 2500);
-      
-    } catch (err) {
-      toast.error("Transaction mein masla aya. Dobara koshish karein.");
-      setIsScanning(false);
-    }
-  };
-
-  // Handle user choosing to proceed with deep scan
-  const handleProceedToDeepScan = async () => {
-    setShowPreScanModal(false);
-    setIsScanning(true);
-    
-    try {
-      if (!pendingScanInput) {
-        toast.error("Scan data lost. Please try again.");
-        return;
-      }
-      
-      // Use default config (audit configs removed)
-      toast.success(`Proceeding to Deep Scan...`);
-      
-      // Execute full hybrid scan with default settings
-      const result: DeepScanResult = await executeHybridScan(
-        pendingScanInput,
-        undefined, // No custom engine type
-        undefined, // No custom system prompt
-        pendingScanInput.useSystemKeys // Use the coin-scan mode if applicable
-      );
-      
-      // Generate why analysis with disclosure verification
-      const whyAnalysis = generateWhyAnalysis(result, {
-        title: pendingScanInput.title,
-        description: pendingScanInput.description,
-        tags: pendingScanInput.tags,
-        extractedAt: new Date().toISOString()
-      }, pendingScanInput.platformId);
-      
-      // Build full report
-      const report: FullReport = {
-        videoUrl: pendingScanInput.videoUrl,
-        verifiedTimestamp: new Date().toISOString(),
-        platform: pendingScanInput.platformId,
-        overallRisk: result.riskScore,
-        aiDetected: result.aiDetectionConfidence > 0.7,
-        disclosureVerified: whyAnalysis.disclosureStatus === "verified",
-        whyAnalysis,
-        shareable: true
-      };
-      
-      setAuditReport(report);
-      
-      // Save to audit history (database or local storage)
-      await saveAuditReport({
-        video_url: pendingScanInput.videoUrl,
-        video_title: pendingScanInput.title,
-        thumbnail_url: pendingScanInput.thumbnail,
-        platform: pendingScanInput.platformId,
-        overall_risk: result.riskScore,
-        result_json: result,
-      }, isGuest, user?.id);
-      
-      // Clear pending scan as it's finished
-      await vault.clearPendingScan(pendingScanInput.videoId);
-      
-      // Record scan for rate limiting (if using admin API)
-      const poolHealth = checkPoolHealth();
-      const hasUserApiKey = poolHealth.totalKeys > 0;
-      
-      if (!hasUserApiKey && user?.id) {
-        recordScan(user?.id);
-        console.log('Scan recorded for rate limiting');
-      }
-      
-      // Trigger audit section refresh
-      setAuditRefreshTrigger(prev => prev + 1);
-      
-      // Add to history
-      const newItem: ScanHistoryItem = {
-        url: pendingScanInput.videoUrl,
-        title: pendingScanInput.title,
-        risk: result.riskScore,
-        date: new Date().toLocaleDateString(),
-      };
-      const updated = [newItem, ...scanHistory.filter((h) => h.url !== newItem.url)].slice(0, 20);
-      setScanHistory(updated);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-      
-      toast.success("Deep Scan Complete!");
-      
-    } catch (error) {
-      console.error('Deep scan failed:', error);
-      toast.error('Deep scan failed. Please try again.');
-    } finally {
-      setIsScanning(false);
-      setPendingScanInput(null);
-    }
-  };
-
-  // Handle user choosing to skip deep scan
-  const handleSkipDeepScan = async () => {
-    setShowPreScanModal(false);
-    
-    if (!preScanResult) return;
-    
-    try {
-      // Create a lightweight report from pre-scan results only
-      const lightweightReport: FullReport = {
-        videoUrl: preScanResult.pendingInput.videoUrl,
-        verifiedTimestamp: new Date().toISOString(),
-        platform: preScanResult.pendingInput.platformId,
-        overallRisk: preScanResult.riskScore,
-        aiDetected: false,
-        disclosureVerified: preScanResult.riskScore < 20,
-        whyAnalysis: {
-          riskReason: `Pre-scan detected ${preScanResult.issues.length} issue(s) in metadata.`,
-          policyLinks: [],
-          exactViolations: preScanResult.issues.map(issue => ({
-            text: issue,
-            severity: preScanResult.riskScore > 50 ? "high" : "medium"
-          })),
-          disclosureStatus: preScanResult.riskScore < 20 ? "verified" : "missing"
-        },
-        shareable: true
-      };
-      
-      setAuditReport(lightweightReport);
-      
-      // Save to permanent history even if deep scan is skipped
-      await saveAuditReport({
-        video_url: preScanResult.pendingInput.videoUrl,
-        video_title: preScanResult.pendingInput.title,
-        thumbnail_url: preScanResult.pendingInput.thumbnail,
-        platform: preScanResult.pendingInput.platformId,
-        overall_risk: preScanResult.riskScore,
-        result_json: { ...preScanResult, isMetadataOnly: true },
-      }, isGuest, user?.id);
-
-      // Add to history
-      const newItem: ScanHistoryItem = {
-        url: preScanResult.pendingInput.videoUrl,
-        title: preScanResult.pendingInput.title,
-        risk: preScanResult.riskScore,
-        date: new Date().toLocaleDateString(),
-      };
-      const updated = [newItem, ...scanHistory.filter((h) => h.url !== newItem.url)].slice(0, 20);
-      setScanHistory(updated);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-      
-      // Refresh My Audits section
-      setAuditRefreshTrigger(prev => prev + 1);
-
-      toast.success("Pre-Scan Complete! (Deep scan skipped)");
-    } catch (error) {
-      console.error("Failed to save skipped scan:", error);
-      toast.error("Scan results save nahi ho sakay.");
-    } finally {
-      setPendingScanInput(null);
-    }
-  };
+  const platforms = [
+    { 
+      id: 'youtube', 
+      name: 'YouTube', 
+      icon: Youtube, 
+      color: 'text-red-500', 
+      bgColor: 'bg-red-500/10', 
+      borderColor: 'border-red-500/50',
+      route: '/scan/youtube',
+      description: 'Check monetization safety & policy compliance'
+    },
+    { 
+      id: 'tiktok', 
+      name: 'TikTok', 
+      icon: Music2, 
+      color: 'text-pink-500', 
+      bgColor: 'bg-pink-500/10', 
+      borderColor: 'border-pink-500/50',
+      route: '/scan/tiktok',
+      description: 'Scan for community guidelines violations'
+    },
+    { 
+      id: 'facebook', 
+      name: 'Facebook', 
+      icon: Facebook, 
+      color: 'text-blue-600', 
+      bgColor: 'bg-blue-600/10', 
+      borderColor: 'border-blue-600/50',
+      route: '/scan/facebook',
+      description: 'Verify content policy adherence'
+    },
+    { 
+      id: 'instagram', 
+      name: 'Instagram', 
+      icon: Instagram, 
+      color: 'text-purple-500', 
+      bgColor: 'bg-purple-500/10', 
+      borderColor: 'border-purple-500/50',
+      route: '/scan/instagram',
+      description: 'Audit reels and posts for compliance'
+    },
+    { 
+      id: 'dailymotion', 
+      name: 'Dailymotion', 
+      icon: PlayCircle, 
+      color: 'text-blue-400', 
+      bgColor: 'bg-blue-400/10', 
+      borderColor: 'border-blue-400/50',
+      route: '/scan/dailymotion',
+      description: 'Check platform-specific policies'
+    },
+  ];
 
   return (
     <SidebarProvider>
@@ -484,7 +156,7 @@ const Index = () => {
         <AppSidebar activeSection={activeSection} onNavigate={handleNavigate} />
 
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar with sidebar trigger */}
+          {/* Top bar */}
           <header className="sticky top-0 z-50 glass-card h-14 flex items-center justify-between px-4 border-b border-border/30">
             <div className="flex items-center">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
@@ -493,86 +165,129 @@ const Index = () => {
                 <span className="text-xs text-muted-foreground">AI Monetization Shield</span>
               </div>
             </div>
-            <ViolationAlertPanel />
           </header>
 
           <main className="flex-1 overflow-y-auto">
-            <div ref={sectionRefs.scan}>
-              {/* Platform Selector */}
-              <div className="container mx-auto px-6 pt-6 pb-2">
-                <PlatformSelector selectedPlatform={selectedPlatform} onSelect={setSelectedPlatform} />
-              </div>
-              
-              <HeroScan 
-                onScan={handleScan} 
-                isScanning={isScanning}
-                selectedPlatform={selectedPlatform}
-                onPlatformChange={setSelectedPlatform}
-              />
-              {isScanning && <ScanSkeleton />}
-              {auditReport && metadata && (
-                <UniversalAuditReport
-                  key={`report-${auditReport.verifiedTimestamp}-${auditReport.overallRisk}`}
-                  report={auditReport}
-                  metadata={metadata}
-                  platform={auditReport.platform}
-                  videoUrl={auditReport.videoUrl}
-                  isGuest={isGuest}
-                  onCopy={() => {
-                    navigator.clipboard.writeText(JSON.stringify(auditReport, null, 2));
-                    toast.success("Report copied to clipboard!");
-                  }}
-                  onShare={() => {
-                    navigator.clipboard.writeText(auditReport.videoUrl);
-                    toast.success("Share link copied!");
-                  }}
-                  onRunDeepScan={() => {
-                    toast.info("Running comprehensive deep scan...");
-                    // Deep scan logic can be added here
-                  }}
-                />
-              )}
-            </div>
+            {/* Hero Section */}
+            <section className="container mx-auto px-6 py-12">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="text-center mb-12"
+              >
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-primary font-medium">AI-Powered Policy Analysis</span>
+                </div>
+                
+                <h1 className="text-5xl md:text-6xl font-bold mb-4">
+                  <span className="text-gradient">Protect Your Content</span>
+                  <br />
+                  <span className="text-white">Before It's Too Late</span>
+                </h1>
+                
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+                  Scan your videos across 5 platforms. Our AI team reviews policies, detects violations, 
+                  and provides detailed recommendations to keep your content monetization-safe.
+                </p>
 
-            <RecentScans history={scanHistory} onRescan={handleScan} />
+                <Button
+                  size="lg"
+                  onClick={() => navigate("/scan/youtube")}
+                  className="bg-primary hover:bg-primary/90 text-lg px-8"
+                >
+                  Start Scanning
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              </motion.div>
+
+              {/* Features Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <Card className="glass-card border border-border/20">
+                  <CardContent className="pt-6">
+                    <Shield className="w-12 h-12 text-primary mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">Policy Analysis</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Our AI reviews your content against latest platform policies, just like a human team would.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="glass-card border border-border/20">
+                  <CardContent className="pt-6">
+                    <Zap className="w-12 h-12 text-accent mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">Smart Decisions</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Get clear PASS/FLAGGED/FAIL verdicts with detailed reasoning for each decision.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="glass-card border border-border/20">
+                  <CardContent className="pt-6">
+                    <Sparkles className="w-12 h-12 text-purple-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">Actionable Advice</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Detailed reports showing exactly what's wrong and how to fix it before posting.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Platform Selection */}
+              <div className="mb-12">
+                <h2 className="text-2xl font-bold text-white text-center mb-2">
+                  Select Your Platform
+                </h2>
+                <p className="text-muted-foreground text-center mb-8">
+                  Choose a platform to start scanning your content
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {platforms.map((platform) => {
+                    const Icon = platform.icon;
+                    return (
+                      <motion.button
+                        key={platform.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => navigate(platform.route)}
+                        className={`relative flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all duration-300 hover:shadow-lg ${platform.bgColor} ${platform.borderColor}`}
+                      >
+                        <Icon className={`w-12 h-12 mb-3 ${platform.color}`} />
+                        <span className={`text-sm font-semibold ${platform.color}`}>{platform.name}</span>
+                        <span className="text-xs text-muted-foreground mt-2 text-center">
+                          {platform.description}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            {/* Recent Scans */}
+            {scanHistory.length > 0 && (
+              <RecentScans history={scanHistory} onRescan={(url, platformId) => {
+                navigate(`/scan/${platformId}`);
+              }} />
+            )}
 
             <div className="neon-line my-4" />
 
             {/* My Audits Section */}
             <MyAuditsSection refreshTrigger={auditRefreshTrigger} />
 
+            {/* Footer */}
             <footer className="container mx-auto px-6 py-12 text-center text-sm text-muted-foreground space-y-2">
-              <p className="text-gradient font-semibold text-lg">TubeClear</p>
-              <p>AI-Powered YouTube Monetization Shield • Built for US/UK Creators</p>
-              <p>© latest TubeClear. All rights reserved.</p>
+              <p className="text-gradient font-semibold text-lg">TubeClear AI</p>
+              <p>AI-Powered Multi-Platform Content Auditor • Built for Creators</p>
+              <p>© {new Date().getFullYear()} TubeClear. All rights reserved.</p>
             </footer>
           </main>
         </div>
       </div>
-
-      <ShareButton />
-      
-      {/* Pre-Scan Consent Modal */}
-      <PreScanConsentModal
-        isOpen={showPreScanModal}
-        onClose={() => setShowPreScanModal(false)}
-        onProceedToDeepScan={handleProceedToDeepScan}
-        onSkipDeepScan={handleSkipDeepScan}
-        preScanResult={preScanResult}
-      />
-
-      {/* Coin Deduction Modal */}
-      <CoinDeductionModal
-        isOpen={isCoinModalOpen}
-        onClose={() => setIsCoinModalOpen(false)}
-        onConfirm={handleConfirmCoinScan}
-        onAddKey={() => navigate("/settings")}
-        coinCost={currentScanCost}
-        userBalance={balance}
-      />
-
-      {/* Success Overlay */}
-      <CoinSuccessAnimation isVisible={showCoinSuccess} />
     </SidebarProvider>
   );
 };
