@@ -14,10 +14,13 @@ import Payment from "./pages/Payment.tsx";
 import DisputeForm from "./pages/DisputeForm.tsx";
 import LicenseKeys from "./pages/LicenseKeys.tsx";
 import APISettings from "./pages/APISettings.tsx";
+import APIKeyManager from "./pages/APIKeyManager.tsx";
 import FeatureStorePage from "./pages/FeatureStorePage.tsx";
 import FAQPage from "./pages/FAQPage.tsx";
 import PolicyNewsroomPage from "./pages/PolicyNewsroomPage.tsx";
 import PendingScans from "./pages/PendingScans.tsx";
+import DiffEngine from "./pages/DiffEngine.tsx";
+import PolicyMonitor from "./pages/PolicyMonitor.tsx";
 import YouTubeScan from "./pages/scan/YouTubeScan.tsx";
 import TikTokScan from "./pages/scan/TikTokScan.tsx";
 import FBScan from "./pages/scan/FBScan.tsx";
@@ -35,6 +38,8 @@ const App = () => (
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/pending-scans" element={<PendingScans />} />
+        <Route path="/diff-engine" element={<DiffEngine />} />
+        <Route path="/policy-monitor" element={<PolicyMonitor />} />
         <Route path="/history" element={<History />} />
         <Route path="/market" element={<MarketWatcher />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -44,6 +49,7 @@ const App = () => (
         <Route path="/dispute" element={<DisputeForm />} />
         <Route path="/license-keys" element={<LicenseKeys />} />
         <Route path="/settings" element={<APISettings />} />
+        <Route path="/api-key-manager" element={<APIKeyManager />} />
         <Route path="/store" element={<FeatureStorePage />} />
         <Route path="/faq" element={<FAQPage />} />
         <Route path="/newsroom" element={<PolicyNewsroomPage />} />

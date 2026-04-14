@@ -1,4 +1,4 @@
-import { Shield, Newspaper, Settings, HelpCircle, LogIn, LogOut, User, Coins, Sparkles, LayoutGrid, Store, TrendingUp, History as HistoryIcon, Key, Clock } from "lucide-react";
+import { Shield, Newspaper, Settings, HelpCircle, LogIn, LogOut, User, Coins, Sparkles, LayoutGrid, Store, TrendingUp, History as HistoryIcon, Key, Clock, GitCompare, Bell } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCoins } from "@/contexts/CoinContext";
@@ -28,11 +28,14 @@ const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { id: "pending-scans", label: "Pending Scans", icon: Clock },
   { id: "history", label: "History", icon: HistoryIcon },
+  { id: "diff-engine", label: "Diff Engine", icon: GitCompare },
+  { id: "policy-monitor", label: "Policy Monitor", icon: Bell },
   { id: "market", label: "Market Watcher", icon: TrendingUp },
   { id: "store", label: "Feature Store", icon: Store },
   { id: "newsroom", label: "Policy News", icon: Newspaper },
   { id: "faq", label: "FAQ", icon: HelpCircle },
   { id: "settings", label: "API Keys", icon: Settings },
+  { id: "api-key-manager", label: "Key Manager", icon: Key },
   { id: "license-keys", label: "License Keys", icon: Key },
 ];
 
