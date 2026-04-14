@@ -7,12 +7,10 @@ import UniversalAuditReport from "@/components/UniversalAuditReport";
 import ScanSkeleton from "@/components/ScanSkeleton";
 import RecentScans, { type ScanHistoryItem } from "@/components/RecentScans";
 import PolicyNewsroom from "@/components/PolicyNewsroom";
-import ApiSettings from "@/components/ApiSettings";
 import FAQSection from "@/components/FAQSection";
 import FeatureStore from "@/components/FeatureStore";
 import ShareButton from "@/components/ShareButton";
 import ScrollReveal from "@/components/ScrollReveal";
-import EngineGrid from "@/components/EngineGrid";
 import ViolationAlertPanel from "@/components/ViolationAlertPanel";
 import PreScanConsentModal from "@/components/PreScanConsentModal";
 import PlatformSelector from "@/components/PlatformSelector";
@@ -134,6 +132,10 @@ const Index = () => {
     }
     if (section === "license-keys") {
       navigate("/license-keys");
+      return;
+    }
+    if (section === "settings") {
+      navigate("/settings");
       return;
     }
     setActiveSection(section);
@@ -529,8 +531,6 @@ const Index = () => {
 
             <RecentScans history={scanHistory} onRescan={handleScan} />
 
-            <EngineGrid />
-
             <div className="neon-line my-4" />
 
             <ScrollReveal>
@@ -554,12 +554,6 @@ const Index = () => {
                 <FAQSection />
               </div>
             </ScrollReveal>
-
-            <div className="neon-line my-4" />
-
-            <div ref={sectionRefs.settings}>
-              <ApiSettings />
-            </div>
 
             <div className="neon-line my-4" />
 

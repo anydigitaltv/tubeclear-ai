@@ -13,6 +13,7 @@ import SecuritySettings from "./pages/SecuritySettings.tsx";
 import Payment from "./pages/Payment.tsx";
 import DisputeForm from "./pages/DisputeForm.tsx";
 import LicenseKeys from "./pages/LicenseKeys.tsx";
+import APISettings from "./pages/APISettings.tsx";
 import PendingScans from "./pages/PendingScans.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -34,6 +35,7 @@ const App = () => (
         <Route path="/payment" element={<Payment />} />
         <Route path="/dispute" element={<DisputeForm />} />
         <Route path="/license-keys" element={<LicenseKeys />} />
+        <Route path="/settings" element={<APISettings />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
