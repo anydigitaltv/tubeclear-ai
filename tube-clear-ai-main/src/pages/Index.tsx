@@ -6,9 +6,6 @@ import HeroScan from "@/components/HeroScan";
 import UniversalAuditReport from "@/components/UniversalAuditReport";
 import ScanSkeleton from "@/components/ScanSkeleton";
 import RecentScans, { type ScanHistoryItem } from "@/components/RecentScans";
-import PolicyNewsroom from "@/components/PolicyNewsroom";
-import FAQSection from "@/components/FAQSection";
-import FeatureStore from "@/components/FeatureStore";
 import ShareButton from "@/components/ShareButton";
 import ScrollReveal from "@/components/ScrollReveal";
 import ViolationAlertPanel from "@/components/ViolationAlertPanel";
@@ -111,10 +108,6 @@ const Index = () => {
 
   const sectionRefs = {
     scan: useRef<HTMLDivElement>(null),
-    store: useRef<HTMLDivElement>(null),
-    newsroom: useRef<HTMLDivElement>(null),
-    faq: useRef<HTMLDivElement>(null),
-    settings: useRef<HTMLDivElement>(null),
   };
 
   const handleNavigate = (section: string) => {
@@ -136,6 +129,18 @@ const Index = () => {
     }
     if (section === "settings") {
       navigate("/settings");
+      return;
+    }
+    if (section === "store") {
+      navigate("/store");
+      return;
+    }
+    if (section === "faq") {
+      navigate("/faq");
+      return;
+    }
+    if (section === "newsroom") {
+      navigate("/newsroom");
       return;
     }
     setActiveSection(section);
@@ -530,30 +535,6 @@ const Index = () => {
             </div>
 
             <RecentScans history={scanHistory} onRescan={handleScan} />
-
-            <div className="neon-line my-4" />
-
-            <ScrollReveal>
-              <div ref={sectionRefs.store} className="container mx-auto px-6 py-8">
-                <FeatureStore />
-              </div>
-            </ScrollReveal>
-
-            <div className="neon-line my-4" />
-
-            <ScrollReveal>
-              <div ref={sectionRefs.newsroom}>
-                <PolicyNewsroom />
-              </div>
-            </ScrollReveal>
-
-            <div className="neon-line my-4" />
-
-            <ScrollReveal>
-              <div ref={sectionRefs.faq}>
-                <FAQSection />
-              </div>
-            </ScrollReveal>
 
             <div className="neon-line my-4" />
 

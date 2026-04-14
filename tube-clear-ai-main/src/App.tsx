@@ -14,6 +14,9 @@ import Payment from "./pages/Payment.tsx";
 import DisputeForm from "./pages/DisputeForm.tsx";
 import LicenseKeys from "./pages/LicenseKeys.tsx";
 import APISettings from "./pages/APISettings.tsx";
+import FeatureStorePage from "./pages/FeatureStorePage.tsx";
+import FAQPage from "./pages/FAQPage.tsx";
+import PolicyNewsroomPage from "./pages/PolicyNewsroomPage.tsx";
 import PendingScans from "./pages/PendingScans.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -36,6 +39,9 @@ const App = () => (
         <Route path="/dispute" element={<DisputeForm />} />
         <Route path="/license-keys" element={<LicenseKeys />} />
         <Route path="/settings" element={<APISettings />} />
+        <Route path="/store" element={<FeatureStorePage />} />
+        <Route path="/faq" element={<FAQPage />} />
+        <Route path="/newsroom" element={<PolicyNewsroomPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
