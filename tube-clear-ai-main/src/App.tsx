@@ -26,6 +26,7 @@ import TikTokScan from "./pages/scan/TikTokScan.tsx";
 import FBScan from "./pages/scan/FBScan.tsx";
 import IGScan from "./pages/scan/IGScan.tsx";
 import DailymotionScan from "./pages/scan/DailymotionScan.tsx";
+import VideoViolations from "./pages/VideoViolations.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const App = () => (
@@ -40,6 +41,7 @@ const App = () => (
         <Route path="/pending-scans" element={<PendingScans />} />
         <Route path="/diff-engine" element={<DiffEngine />} />
         <Route path="/policy-monitor" element={<PolicyMonitor />} />
+        <Route path="/violations" element={<VideoViolations />} />
         <Route path="/history" element={<History />} />
         <Route path="/market" element={<MarketWatcher />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />

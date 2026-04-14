@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import HeroScan from "@/components/HeroScan";
 import UniversalAuditReport from "@/components/UniversalAuditReport";
 import ScanSkeleton from "@/components/ScanSkeleton";
-import { useHybridScanner, type FullReport } from "@/contexts/HybridScannerContext";
+import PreScanConsentModal from "@/components/PreScanConsentModal";
+import { CoinDeductionModal } from "@/utils/CoinDeductionModal";
+import CoinSuccessAnimation from "@/components/CoinSuccessAnimation";
+import { saveAuditReport } from "@/utils/auditStorage";
+import { calculateScanCost } from "@/config/pricingConfig";
+import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contexts/HybridScannerContext";
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
+import { useCoins } from "@/contexts/CoinContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAIWithRotation } from "@/utils/apiRotationWrapper";
+import { vault } from "@/utils/historicalVault";
+import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
 import { toast } from "sonner";
 import type { PlatformId } from "@/contexts/PlatformContext";
 
