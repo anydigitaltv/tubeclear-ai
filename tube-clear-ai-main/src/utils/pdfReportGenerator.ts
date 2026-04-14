@@ -7,11 +7,17 @@ interface PDFReportData {
   url: string;
   thumbnail: string;
   platform: string;
-  riskScore: number;
-  verdict: string;
+  verdict: "PASS" | "FLAGGED" | "FAIL";
   fixRoadmap: string[];
   issues: any[];
   engine: string;
+  policyCompliance?: Array<{
+    rule: string;
+    status: "PASS" | "FAIL";
+    insight: string;
+  }>;
+  duration?: string;
+  scanDate?: string;
 }
 
 /**
@@ -62,18 +68,35 @@ export const generateAuditPDF = async (data: PDFReportData) => {
 
   currentY += 40;
 
-  // 3. Risk & Verdict Section
+  // 3. Verdict Section (No Score - Only Verdict)
   doc.setDrawColor(226, 232, 240);
   doc.line(15, currentY, pageWidth - 15, currentY);
   currentY += 10;
 
-  doc.setFontSize(12);
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("Audit Verdict:", 15, currentY);
+  doc.setTextColor(30, 41, 59);
+  doc.text("Final Verdict:", 15, currentY);
   
-  const verdictColor = data.verdict === "GREEN" ? [34, 197, 94] : data.verdict === "YELLOW" ? [234, 179, 8] : [239, 68, 68];
+  const verdictColor = data.verdict === "PASS" ? [34, 197, 94] : data.verdict === "FLAGGED" ? [234, 179, 8] : [239, 68, 68];
   doc.setTextColor(verdictColor[0], verdictColor[1], verdictColor[2]);
-  doc.text(`${data.verdict} (${data.riskScore}% Risk)`, 50, currentY);
+  doc.setFontSize(16);
+  doc.text(data.verdict, 50, currentY);
+  
+  // Additional info
+  currentY += 10;
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont("helvetica", "normal");
+  if (data.duration) {
+    doc.text(`Video Duration: ${data.duration}`, 15, currentY);
+    currentY += 6;
+  }
+  if (data.scanDate) {
+    doc.text(`Scan Date: ${data.scanDate}`, 15, currentY);
+    currentY += 6;
+  }
+  doc.text(`AI Engine Used: ${data.engine}`, 15, currentY);
 
   currentY += 15;
 
@@ -101,20 +124,81 @@ export const generateAuditPDF = async (data: PDFReportData) => {
 
   currentY += 5;
 
-  // 5. Detailed Violations Table
-  autoTable(doc, {
-    startY: currentY,
-    head: [['Timestamp', 'Policy Violation', 'Severity', 'Urdu Explanation (Wazahat)']],
-    body: data.issues.map(issue => [
-      issue.timestamp || "N/A",
-      issue.description || "Policy Breach",
-      issue.severity?.toUpperCase() || "MEDIUM",
-      issue.urduExplanation || "Review karein aur policy ke mutabiq theek karein."
-    ]),
-    headStyles: { fillColor: [30, 41, 59] },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    margin: { left: 15, right: 15 }
-  });
+  // 5. Policy Compliance Grid (Like Dashboard)
+  if (data.policyCompliance && data.policyCompliance.length > 0) {
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Policy Compliance Grid", 15, currentY);
+    currentY += 7;
+    
+    const passCount = data.policyCompliance.filter(p => p.status === "PASS").length;
+    const failCount = data.policyCompliance.filter(p => p.status === "FAIL").length;
+    const totalCount = data.policyCompliance.length;
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text(`${totalCount} policies checked • ${passCount} PASS • ${failCount} FAIL`, 15, currentY);
+    currentY += 7;
+    
+    // Policy Compliance Table
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Status', 'Policy Rule', 'Insight']],
+      body: data.policyCompliance.map(policy => [
+        policy.status,
+        policy.rule,
+        policy.insight
+      ]),
+      headStyles: { fillColor: [30, 41, 59] },
+      columnStyles: {
+        0: { fontStyle: 'bold', width: 20 },
+        1: { width: 60 },
+        2: { width: 90 }
+      },
+      didParseCell: function(data) {
+        // Color code PASS/FAIL
+        if (data.section === 'body' && data.column.index === 0) {
+          if (data.cell.raw === 'PASS') {
+            data.cell.styles.textColor = [34, 197, 94];
+          } else {
+            data.cell.styles.textColor = [239, 68, 68];
+          }
+        }
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 15, right: 15 }
+    });
+    
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+  }
+
+  // 6. Detailed Violations Table (Only if there are violations)
+  if (data.issues && data.issues.length > 0) {
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Status', 'Policy Violation', 'Urdu Explanation (Wazahat)']],
+      body: data.issues.map(issue => [
+        "FAIL",
+        issue.description || "Policy Breach",
+        issue.urduExplanation || "Review karein aur policy ke mutabiq theek karein."
+      ]),
+      headStyles: { fillColor: [30, 41, 59] },
+      columnStyles: {
+        0: { fontStyle: 'bold', width: 20 },
+        1: { width: 60 },
+        2: { width: 90 }
+      },
+      didParseCell: function(data) {
+        if (data.section === 'body' && data.column.index === 0) {
+          data.cell.styles.textColor = [239, 68, 68];
+        }
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 15, right: 15 }
+    });
+  }
 
   // Footer
   const finalY = (doc as any).lastAutoTable.finalY + 20;

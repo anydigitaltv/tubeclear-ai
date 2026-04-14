@@ -293,17 +293,32 @@ export const ProfessionalDashboard = ({
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
-      // Create a canvas from the report
-      const reportElement = document.getElementById('audit-report-content');
-      if (!reportElement) {
-        throw new Error('Report element not found');
-      }
+      const policyCompliance = generatePolicyCompliance();
       
-      // In production, use html2canvas and jsPDF libraries
-      // For now, show success message
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      alert("PDF export feature - In production, this generates a professional PDF report with:\n\n• Monetization Readiness Score\n• Policy Compliance Summary\n• AI Analysis & Recommendations\n• Platform-Specific Insights");
+      // Import PDF generator
+      const { generateAuditPDF } = await import('@/utils/pdfReportGenerator');
+      
+      const pdfData = {
+        title: metadata?.title || "Video Audit Report",
+        url: videoUrl || report.videoUrl,
+        thumbnail: metadata?.thumbnail || report.thumbnail,
+        platform,
+        verdict: report.overallRisk < 30 ? "PASS" : report.overallRisk < 70 ? "FLAGGED" : "FAIL",
+        fixRoadmap: report.whyAnalysis.recommendations || ["Review policy guidelines"],
+        issues: report.whyAnalysis.exactViolations || [],
+        engine: report.aiEngineUsed || "Gemini",
+        policyCompliance: policyCompliance.map(p => ({
+          rule: p.rule,
+          status: p.status,
+          insight: p.insight
+        })),
+        duration: metadata?.duration || "Unknown",
+        scanDate: new Date().toLocaleString()
+      };
+      
+      await generateAuditPDF(pdfData);
     } catch (error) {
+      console.error("PDF export failed:", error);
       alert("Failed to export PDF. Please try again.");
     } finally {
       setIsExporting(false);
