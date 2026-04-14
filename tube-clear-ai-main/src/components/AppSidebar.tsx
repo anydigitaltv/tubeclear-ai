@@ -1,4 +1,4 @@
-import { Shield, Newspaper, Settings, HelpCircle, LogIn, LogOut, User, Coins, Sparkles, LayoutGrid, Store, TrendingUp, History as HistoryIcon, Key } from "lucide-react";
+import { Shield, Newspaper, Settings, HelpCircle, LogIn, LogOut, User, Coins, Sparkles, LayoutGrid, Store, TrendingUp, History as HistoryIcon, Key, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCoins } from "@/contexts/CoinContext";
@@ -26,6 +26,7 @@ interface AppSidebarProps {
 const navItems = [
   { id: "scan", label: "Home", icon: Shield },
   { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+  { id: "pending-scans", label: "Pending Scans", icon: Clock },
   { id: "history", label: "History", icon: HistoryIcon },
   { id: "market", label: "Market Watcher", icon: TrendingUp },
   { id: "store", label: "Feature Store", icon: Store },

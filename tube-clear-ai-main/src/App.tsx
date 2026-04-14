@@ -13,6 +13,7 @@ import SecuritySettings from "./pages/SecuritySettings.tsx";
 import Payment from "./pages/Payment.tsx";
 import DisputeForm from "./pages/DisputeForm.tsx";
 import LicenseKeys from "./pages/LicenseKeys.tsx";
+import PendingScans from "./pages/PendingScans.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const App = () => (
@@ -24,6 +25,7 @@ const App = () => (
         <Route path="/" element={<Index />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/pending-scans" element={<PendingScans />} />
         <Route path="/history" element={<History />} />
         <Route path="/market" element={<MarketWatcher />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
