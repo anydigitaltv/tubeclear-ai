@@ -108,6 +108,17 @@ const VideoCard = ({ video }: VideoCardProps) => {
           {video.platformId}
         </div>
 
+        {/* Watch Original Link Button */}
+        <a
+          href={video.videoUrl || '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute top-2 right-2 p-2 bg-black/70 hover:bg-primary/80 text-white rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100 z-20"
+          title="Watch Original Video"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </a>
+
         {/* Scanning Overlay */}
         {video.riskScore === undefined && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
@@ -125,7 +136,7 @@ const VideoCard = ({ video }: VideoCardProps) => {
 
         {/* Risk Score & AI Badges */}
         {video.riskScore !== undefined && (
-          <div className="absolute top-2 right-2 flex flex-col gap-1">
+          <div className="absolute top-12 right-2 flex flex-col gap-1">
             <Badge className={cn("text-[10px] px-1.5 py-0.5", getRiskBadgeColor(video.riskScore))}>
               <Shield className="h-3 w-3 mr-0.5" />
               Risk: {video.riskScore}%

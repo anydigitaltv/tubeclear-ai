@@ -18,6 +18,11 @@ import FeatureStorePage from "./pages/FeatureStorePage.tsx";
 import FAQPage from "./pages/FAQPage.tsx";
 import PolicyNewsroomPage from "./pages/PolicyNewsroomPage.tsx";
 import PendingScans from "./pages/PendingScans.tsx";
+import YouTubeScan from "./pages/scan/YouTubeScan.tsx";
+import TikTokScan from "./pages/scan/TikTokScan.tsx";
+import FBScan from "./pages/scan/FBScan.tsx";
+import IGScan from "./pages/scan/IGScan.tsx";
+import DailymotionScan from "./pages/scan/DailymotionScan.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const App = () => (
@@ -42,6 +47,12 @@ const App = () => (
         <Route path="/store" element={<FeatureStorePage />} />
         <Route path="/faq" element={<FAQPage />} />
         <Route path="/newsroom" element={<PolicyNewsroomPage />} />
+        {/* Platform-specific scan pages */}
+        <Route path="/scan/youtube" element={<YouTubeScan />} />
+        <Route path="/scan/tiktok" element={<TikTokScan />} />
+        <Route path="/scan/facebook" element={<FBScan />} />
+        <Route path="/scan/instagram" element={<IGScan />} />
+        <Route path="/scan/dailymotion" element={<DailymotionScan />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

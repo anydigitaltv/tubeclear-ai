@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Shield, Sparkles, Cpu } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Shield, Sparkles, Cpu, Youtube, Music2, Facebook, Instagram, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PlatformCard from "@/components/PlatformCard";
 import VideoDashboard from "@/components/VideoDashboard";
@@ -11,11 +12,20 @@ import { useHistoricalVault } from "@/utils/historicalVault";
 import { usePlatforms, type PlatformId } from "@/contexts/PlatformContext";
 
 const DashboardShell = () => {
+  const navigate = useNavigate();
   const { platforms, connectPlatform, disconnectPlatform, getConnectedCount, isLoading } = usePlatforms();
   const { stats, safetyMeter, isLoading: vaultLoading, refreshStats } = useHistoricalVault();
   const [activeFilter, setActiveFilter] = useState<PlatformId | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
+
+  const platformNavItems = [
+    { id: 'youtube', name: 'YouTube', icon: Youtube, color: 'text-red-500', bgColor: 'bg-red-500/10', borderColor: 'border-red-500/50', route: '/scan/youtube' },
+    { id: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-pink-500', bgColor: 'bg-pink-500/10', borderColor: 'border-pink-500/50', route: '/scan/tiktok' },
+    { id: 'facebook', name: 'Facebook', icon: Facebook, color: 'text-blue-600', bgColor: 'bg-blue-600/10', borderColor: 'border-blue-600/50', route: '/scan/facebook' },
+    { id: 'instagram', name: 'Instagram', icon: Instagram, color: 'text-purple-500', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/50', route: '/scan/instagram' },
+    { id: 'dailymotion', name: 'Dailymotion', icon: PlayCircle, color: 'text-blue-400', bgColor: 'bg-blue-400/10', borderColor: 'border-blue-400/50', route: '/scan/dailymotion' },
+  ];
 
   // Show welcome notification on first load
   useEffect(() => {
@@ -112,6 +122,27 @@ const DashboardShell = () => {
                 {activeFilter || "All Platforms"}
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* NEW: 5 Platform Navigation Buttons */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold mb-4 text-gradient">Quick Scan - Select Platform</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {platformNavItems.map((platform) => {
+              const Icon = platform.icon;
+              return (
+                <button
+                  key={platform.id}
+                  onClick={() => navigate(platform.route)}
+                  className={`relative flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all duration-300 hover:scale-105 hover:shadow-lg ${platform.bgColor} ${platform.borderColor}`}
+                >
+                  <Icon className={`w-12 h-12 mb-3 ${platform.color}`} />
+                  <span className={`text-sm font-semibold ${platform.color}`}>{platform.name}</span>
+                  <span className="text-xs text-muted-foreground mt-1">Start Scan →</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
