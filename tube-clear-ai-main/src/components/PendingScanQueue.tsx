@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   loadPendingScans,
   removePendingScan,
@@ -24,6 +25,7 @@ import {
 
 export const PendingScanQueue = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [pendingScans, setPendingScans] = useState<ScanState[]>([]);
   const [selectedScan, setSelectedScan] = useState<ScanState | null>(null);
 
@@ -31,10 +33,10 @@ export const PendingScanQueue = () => {
     loadScans();
     const interval = setInterval(loadScans, 5000); // Refresh every 5s
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   const loadScans = () => {
-    const scans = loadPendingScans();
+    const scans = loadPendingScans(user?.id);
     setPendingScans(scans);
   };
 
@@ -91,12 +93,12 @@ export const PendingScanQueue = () => {
   };
 
   const handleRemove = (scanId: string) => {
-    removePendingScan(scanId);
+    removePendingScan(scanId, user?.id);
     loadScans();
   };
 
   const handleClearCompleted = () => {
-    clearCompletedScans();
+    clearCompletedScans(user?.id);
     loadScans();
   };
 

@@ -29,6 +29,7 @@ import { PolicySyncProvider } from "@/contexts/PolicySyncContext";
 import { HybridScannerProvider } from "@/contexts/HybridScannerContext";
 import { LicenseKeyProvider } from "@/contexts/LicenseKeyContext";
 import { LivePolicyEngineProvider } from "@/contexts/LivePolicyEngineContext";
+import { DualEngineScanProvider } from "@/contexts/DualEngineScanContext";
 
 const queryClient = new QueryClient();
 
@@ -57,41 +58,43 @@ export const AppProviders = ({ children }: { children: ReactNode }) => {
                     <AIEngineProvider>
                       <FeatureStoreProvider>
                         <VideoScanProvider>
-                          <PolicyRulesProvider>
-                            <GhostGuardProvider>
-                              <ContentChangeTrackerProvider>
-                                <DynamicComplianceProvider>
-                                  <AIDoctorProvider>
-                                    <GuestModeProvider>
-                                      <EncryptionProvider>
-                                        <PaymentProvider>
-                                          <DisputeProvider>
-                                            <CurrencyProvider>
-                                              <MasterAdminProvider>
-                                                <AuditDoctorProvider>
-                                                  <SecureVaultProvider>
-                                                    <MetadataFetcherProvider>
-                                                      <PolicyWatcherProvider>
-                                                        <PolicySyncProvider>
-                                                          <HybridScannerProvider>
-                                                            {children}
-                                                          </HybridScannerProvider>
-                                                        </PolicySyncProvider>
-                                                      </PolicyWatcherProvider>
-                                                    </MetadataFetcherProvider>
-                                                  </SecureVaultProvider>
-                                                </AuditDoctorProvider>
-                                              </MasterAdminProvider>
-                                            </CurrencyProvider>
-                                          </DisputeProvider>
-                                        </PaymentProvider>
-                                      </EncryptionProvider>
-                                    </GuestModeProvider>
-                                  </AIDoctorProvider>
-                                </DynamicComplianceProvider>
-                              </ContentChangeTrackerProvider>
-                            </GhostGuardProvider>
-                          </PolicyRulesProvider>
+                          <DualEngineScanProvider>
+                            <PolicyRulesProvider>
+                              <GhostGuardProvider>
+                                <ContentChangeTrackerProvider>
+                                  <DynamicComplianceProvider>
+                                    <AIDoctorProvider>
+                                      <GuestModeProvider>
+                                        <EncryptionProvider>
+                                          <PaymentProvider>
+                                            <DisputeProvider>
+                                              <CurrencyProvider>
+                                                <MasterAdminProvider>
+                                                  <AuditDoctorProvider>
+                                                    <SecureVaultProvider>
+                                                      <MetadataFetcherProvider>
+                                                        <PolicyWatcherProvider>
+                                                          <PolicySyncProvider>
+                                                            <HybridScannerProvider>
+                                                              {children}
+                                                            </HybridScannerProvider>
+                                                          </PolicySyncProvider>
+                                                        </PolicyWatcherProvider>
+                                                      </MetadataFetcherProvider>
+                                                    </SecureVaultProvider>
+                                                  </AuditDoctorProvider>
+                                                </MasterAdminProvider>
+                                              </CurrencyProvider>
+                                            </DisputeProvider>
+                                          </PaymentProvider>
+                                        </EncryptionProvider>
+                                      </GuestModeProvider>
+                                    </AIDoctorProvider>
+                                  </DynamicComplianceProvider>
+                                </ContentChangeTrackerProvider>
+                              </GhostGuardProvider>
+                            </PolicyRulesProvider>
+                          </DualEngineScanProvider>
                         </VideoScanProvider>
                       </FeatureStoreProvider>
                     </AIEngineProvider>

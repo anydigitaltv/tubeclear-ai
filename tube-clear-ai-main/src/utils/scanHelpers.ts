@@ -211,9 +211,15 @@ export interface ScanState {
 
 const PENDING_SCANS_STORAGE = "tubeclear_pending_scans";
 
-export const savePendingScan = (scan: ScanState): void => {
+// Get storage key based on user (guest or logged in)
+export const getPendingScansStorageKey = (userId?: string): string => {
+  return userId ? `${PENDING_SCANS_STORAGE}_${userId}` : PENDING_SCANS_STORAGE;
+};
+
+export const savePendingScan = (scan: ScanState, userId?: string): void => {
   try {
-    const scans = loadPendingScans();
+    const storageKey = getPendingScansStorageKey(userId);
+    const scans = loadPendingScans(userId);
     const existingIndex = scans.findIndex(s => s.id === scan.id);
 
     if (existingIndex >= 0) {
@@ -222,16 +228,17 @@ export const savePendingScan = (scan: ScanState): void => {
       scans.push(scan);
     }
 
-    localStorage.setItem(PENDING_SCANS_STORAGE, JSON.stringify(scans));
+    localStorage.setItem(storageKey, JSON.stringify(scans));
     console.log(`💾 Saved pending scan: ${scan.id}`);
   } catch (error) {
     console.error("Error saving pending scan:", error);
   }
 };
 
-export const loadPendingScans = (): ScanState[] => {
+export const loadPendingScans = (userId?: string): ScanState[] => {
   try {
-    const stored = localStorage.getItem(PENDING_SCANS_STORAGE);
+    const storageKey = getPendingScansStorageKey(userId);
+    const stored = localStorage.getItem(storageKey);
     if (!stored) return [];
     return JSON.parse(stored);
   } catch (error) {
@@ -240,11 +247,12 @@ export const loadPendingScans = (): ScanState[] => {
   }
 };
 
-export const removePendingScan = (scanId: string): void => {
+export const removePendingScan = (scanId: string, userId?: string): void => {
   try {
-    const scans = loadPendingScans();
+    const scans = loadPendingScans(userId);
     const filtered = scans.filter(s => s.id !== scanId);
-    localStorage.setItem(PENDING_SCANS_STORAGE, JSON.stringify(filtered));
+    const storageKey = getPendingScansStorageKey(userId);
+    localStorage.setItem(storageKey, JSON.stringify(filtered));
     console.log(`🗑️ Removed pending scan: ${scanId}`);
   } catch (error) {
     console.error("Error removing pending scan:", error);
@@ -253,10 +261,11 @@ export const removePendingScan = (scanId: string): void => {
 
 export const updatePendingScan = (
   scanId: string,
-  updates: Partial<ScanState>
+  updates: Partial<ScanState>,
+  userId?: string
 ): void => {
   try {
-    const scans = loadPendingScans();
+    const scans = loadPendingScans(userId);
     const index = scans.findIndex(s => s.id === scanId);
 
     if (index >= 0) {
@@ -265,18 +274,20 @@ export const updatePendingScan = (
         ...updates,
         lastUpdatedAt: Date.now(),
       };
-      localStorage.setItem(PENDING_SCANS_STORAGE, JSON.stringify(scans));
+      const storageKey = getPendingScansStorageKey(userId);
+      localStorage.setItem(storageKey, JSON.stringify(scans));
     }
   } catch (error) {
     console.error("Error updating pending scan:", error);
   }
 };
 
-export const clearCompletedScans = (): void => {
+export const clearCompletedScans = (userId?: string): void => {
   try {
-    const scans = loadPendingScans();
+    const scans = loadPendingScans(userId);
     const active = scans.filter(s => s.status !== "completed");
-    localStorage.setItem(PENDING_SCANS_STORAGE, JSON.stringify(active));
+    const storageKey = getPendingScansStorageKey(userId);
+    localStorage.setItem(storageKey, JSON.stringify(active));
   } catch (error) {
     console.error("Error clearing completed scans:", error);
   }
