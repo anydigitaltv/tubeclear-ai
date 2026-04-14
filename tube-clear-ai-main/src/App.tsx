@@ -27,6 +27,7 @@ import FBScan from "./pages/scan/FBScan.tsx";
 import IGScan from "./pages/scan/IGScan.tsx";
 import DailymotionScan from "./pages/scan/DailymotionScan.tsx";
 import VideoViolations from "./pages/VideoViolations.tsx";
+import MyVideos from "./pages/MyVideos.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const App = () => (
@@ -42,6 +43,7 @@ const App = () => (
         <Route path="/diff-engine" element={<DiffEngine />} />
         <Route path="/policy-monitor" element={<PolicyMonitor />} />
         <Route path="/violations" element={<VideoViolations />} />
+        <Route path="/my-videos" element={<MyVideos />} />
         <Route path="/history" element={<History />} />
         <Route path="/market" element={<MarketWatcher />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
