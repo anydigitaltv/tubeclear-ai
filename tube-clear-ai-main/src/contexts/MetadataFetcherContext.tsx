@@ -53,9 +53,13 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
   // Native metadata fetching (YouTube Data API, TikTok RapidAPI, etc.)
   const fetchNativeMetadata = useCallback(async (videoUrl: string, platformId: string): Promise<VideoMetadata | null> => {
     try {
+      console.log('📥 fetchNativeMetadata called:', { videoUrl, platformId });
+      
       const videoId = extractVideoId(videoUrl, platformId);
+      console.log('🎬 Extracted video ID:', videoId);
       
       if (!videoId) {
+        console.warn('⚠️ Could not extract video ID from URL');
         return null;
       }
 
@@ -96,9 +100,16 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
 
           // NO-KEY FALLBACK: Use oEmbed (Official method, requires no key)
           console.info("⚡ FREE MODE: Fetching YouTube metadata via oEmbed (No API Key Required)");
-          const oEmbedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(videoUrl)}&format=json`);
+          const oEmbedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(videoUrl)}&format=json`;
+          console.log('📡 oEmbed URL:', oEmbedUrl);
+          
+          const oEmbedRes = await fetch(oEmbedUrl);
+          console.log('📡 oEmbed Response Status:', oEmbedRes.status);
+          
           if (oEmbedRes.ok) {
             const oEmbedData = await oEmbedRes.json();
+            console.log('✅ oEmbed Success:', oEmbedData.title);
+            
             return {
               title: oEmbedData.title,
               description: "Metadata fetched via oEmbed (Keyless Mode)",
@@ -107,6 +118,8 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
               channelName: oEmbedData.author_name,
               fetchedFrom: "native",
             };
+          } else {
+            console.error('❌ oEmbed failed with status:', oEmbedRes.status);
           }
           return null;
         }
