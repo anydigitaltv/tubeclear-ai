@@ -136,17 +136,25 @@ const Index = () => {
   const handleScan = async (url: string, platformId: string) => {
     setIsScanning(true);
     try {
+      console.log('🎯 Starting scan for:', url, platformId);
+      
       const poolHealth = checkPoolHealth();
       
       // Use provided platformId to fetch metadata
       const platform: PlatformId = platformId as PlatformId;
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
-      if (!fetchedMetadata) throw new Error("Metadata fetch failed");
+      
+      console.log('📡 Metadata fetch result:', fetchedMetadata);
+      
+      if (!fetchedMetadata || !fetchedMetadata.title) {
+        console.error('❌ Metadata fetch returned null/empty');
+        throw new Error("Metadata fetch failed - no data returned");
+      }
       
       setMetadata(fetchedMetadata);
       
       // Update pricing based on fetched duration
-      const pricing = calculateScanCost(fetchedMetadata.durationSeconds);
+      const pricing = calculateScanCost(fetchedMetadata.durationSeconds || 0);
       setCurrentScanCost(pricing);
 
       // If no user keys (BYOK), trigger coin deduction flow
@@ -181,8 +189,14 @@ const Index = () => {
       // Fix: Use pre-fetched metadata to avoid redundant API call due to async state update
       let fetchedMetadata = preFetchedMetadata || metadata;
       if (!fetchedMetadata) {
+        console.log('📡 Fetching metadata for:', url, platform);
         fetchedMetadata = await fetchMetadataWithFailover(url, platform);
-        if (!fetchedMetadata) throw new Error("Metadata fetch failed");
+        console.log('📡 Metadata fetch result:', fetchedMetadata);
+        
+        if (!fetchedMetadata || !fetchedMetadata.title) {
+          console.error('❌ Metadata fetch returned null/empty');
+          throw new Error("Metadata fetch failed - no data returned");
+        }
         setMetadata(fetchedMetadata);
       }
 
