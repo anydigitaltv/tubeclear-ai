@@ -44,7 +44,7 @@ const PLATFORM_PATTERNS = {
  */
 export const validateUrl = (url: string): ValidationResult => {
   try {
-    =
+    let trimmedUrl = url.trim();
     if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
       trimmedUrl = 'https://' + trimmedUrl;
     }
