@@ -68,7 +68,7 @@ const AppSidebar = ({ activeSection, onNavigate }: AppSidebarProps) => {
 
         {/* Coin Balance - Prominent Display */}
         {!collapsed && (
-          <div className="mx-4 mb-3">
+          <div className="mx-4 mb-3 space-y-2">
             <div className="glass-card border border-accent/20 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -85,6 +85,27 @@ const AppSidebar = ({ activeSection, onNavigate }: AppSidebarProps) => {
                 <CoinHistory />
               </div>
             </div>
+            
+            {/* Buy Coins Button - Show when balance is 0 */}
+            {balance === 0 && (
+              <Button
+                onClick={() => {
+                  // Payment page route - baad mein implement hoga
+                  const { toast } = require("sonner");
+                  toast.info("💰 Coins Purchase Page",
+                    {
+                      description: "Payment integration coming soon! Filhal API key add karein for free scans.",
+                      duration: 5000
+                    }
+                  );
+                }}
+                className="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold text-sm py-2 h-auto"
+                size="sm"
+              >
+                <Coins className="w-4 h-4 mr-2" />
+                Buy Coins Plan
+              </Button>
+            )}
           </div>
         )}
 
@@ -125,17 +146,19 @@ const AppSidebar = ({ activeSection, onNavigate }: AppSidebarProps) => {
 
       <SidebarFooter className="glass border-r border-border/20 border-t border-t-border/10 p-3 space-y-2.5">
         {/* Guest/User badge at bottom */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2">
           {isGuest ? (
-            <Badge className="w-full justify-center gap-2 py-1.5 bg-muted/60 text-muted-foreground border border-border/40 backdrop-blur-sm">
-              <User className="h-3.5 w-3.5" />
-              {!collapsed && (
-                <>
-                  <span className="font-medium">Guest Mode</span>
-                  <Sparkles className="h-3 w-3 text-primary/60" />
-                </>
-              )}
-            </Badge>
+            <>
+              <Badge className="w-full justify-center gap-2 py-1.5 bg-muted/60 text-muted-foreground border border-border/40 backdrop-blur-sm">
+                <User className="h-3.5 w-3.5" />
+                {!collapsed && (
+                  <>
+                    <span className="font-medium">Guest Mode</span>
+                    <Sparkles className="h-3 w-3 text-primary/60" />
+                  </>
+                )}
+              </Badge>
+            </>
           ) : (
             <Badge className="w-full justify-center gap-2 py-1.5 bg-primary/10 text-primary border border-primary/25">
               <User className="h-3.5 w-3.5" />
@@ -150,7 +173,7 @@ const AppSidebar = ({ activeSection, onNavigate }: AppSidebarProps) => {
           )}
         </div>
 
-        {/* Auth button */}
+        {/* Single Google Login Button */}
         {isGuest ? (
           <motion.div whileTap={{ scale: 0.96 }} transition={{ duration: 0.1 }} className="w-full">
             <Button

@@ -8,6 +8,7 @@ interface CoinDeductionModalProps {
   onClose: () => void;
   onConfirm: () => void;
   onAddKey: () => void;
+  onBuyCoins: () => void;
   coinCost: number;
   userBalance: number;
 }
@@ -17,6 +18,7 @@ export const CoinDeductionModal = ({
   onClose,
   onConfirm,
   onAddKey,
+  onBuyCoins,
   coinCost,
   userBalance
 }: CoinDeductionModalProps) => {
@@ -32,6 +34,11 @@ export const CoinDeductionModal = ({
           </DialogTitle>
           <DialogDescription className="text-slate-400 pt-2">
             Bhai, aapne apni API key add nahi ki hai. Is scan ke liye humari **Admin High-Speed Keys** istemal hongi.
+            {userBalance === 0 && (
+              <p className="mt-2 text-yellow-400 font-semibold">
+                ⚠️ Aapke paas 0 coins hain. Scan shuru karne ke liye coins khareedein!
+              </p>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -64,6 +71,15 @@ export const CoinDeductionModal = ({
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
+            onClick={onBuyCoins}
+            className="flex-1 gap-2 border-yellow-600 hover:bg-yellow-600/20 text-yellow-400 bg-yellow-600/10"
+          >
+            <Coins className="w-4 h-4" />
+            Coins Khareedein
+          </Button>
+          
+          <Button
+            variant="outline"
             onClick={onAddKey}
             className="flex-1 gap-2 border-slate-700 hover:bg-slate-800 text-slate-300"
           >
@@ -74,7 +90,7 @@ export const CoinDeductionModal = ({
           <Button
             onClick={onConfirm}
             disabled={!hasEnoughCoins}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Scan Shuru Karein
           </Button>

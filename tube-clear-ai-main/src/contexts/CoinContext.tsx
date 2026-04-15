@@ -47,29 +47,32 @@ export const CoinProvider = ({ children }: { children: ReactNode }) => {
       
       if (user) {
         // Fetch from Database for authenticated users
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("coins")
-          .eq("id", user.id)
-          .single();
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("coins")
+            .eq("id", user.id)
+            .single();
           
-        const { data: txs } = await supabase
-          .from("coin_transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(50);
+          const { data: txs } = await supabase
+            .from("coin_transactions")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(50);
           
-        setBalance(profile?.coins || 0);
-        setTransactions(txs || []);
-      } else {
-        // Load from localStorage for guests
-        const stored = localStorage.getItem(COIN_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setBalance(parsed.balance || 0);
-          setTransactions(parsed.transactions || []);
+          setBalance((profile as any)?.coins || 0);
+          setTransactions((txs as any) || []);
+        } catch (error) {
+          console.error('Supabase coin fetch error:', error);
+          // Fallback to 0 coins if database error
+          setBalance(0);
+          setTransactions([]);
         }
+      } else {
+        // Guest mode - 0 coins, login required for scanning
+        setBalance(0);
+        setTransactions([]);
       }
       setIsLoading(false);
     };

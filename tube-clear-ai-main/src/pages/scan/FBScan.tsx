@@ -82,6 +82,14 @@ const FBScan = () => {
   }, []);
 
   const handleScan = async (url: string, platformId: string) => {
+    // Guest mode mein pehle login bolo
+    if (isGuest) {
+      toast.error("Please login karein! Guest mode mein scan ke liye login zaroori hai.", {
+        description: "Login karne ke baad aap API key add karke coins buy kar sakte hain."
+      });
+      return;
+    }
+
     setIsScanning(true);
     try {
       const platform: PlatformId = platformId as PlatformId;
@@ -412,6 +420,11 @@ const FBScan = () => {
         onClose={() => setIsCoinModalOpen(false)}
         onConfirm={handleConfirmCoinScan}
         onAddKey={() => navigate("/settings")}
+        onBuyCoins={() => {
+          toast.info("Coins purchase page jald aa rahi hai! Filhal apni API key add karein.", {
+            description: "Payment integration coming soon!"
+          });
+        }}
         coinCost={currentScanCost}
         userBalance={balance}
       />
