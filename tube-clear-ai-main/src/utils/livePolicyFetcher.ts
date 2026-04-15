@@ -470,6 +470,43 @@ export const getAllPolicies = (): PlatformPolicy[] => {
 };
 
 /**
+ * Robust Video Info Extraction for all 5 platforms
+ * Solves the "Video details nahi mil saken" error
+ */
+export const extractVideoInfo = (url: string): { platformId: string | null; videoId: string | null } => {
+  if (!url) return { platformId: null, videoId: null };
+
+  // YouTube Patterns (Standard, Shorts, Mobile, Live)
+  const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  if (ytMatch) return { platformId: 'youtube', videoId: ytMatch[1] };
+
+  // TikTok Patterns (Desktop, Mobile vt.tiktok, User Profile)
+  const ttMatch = url.match(/(?:tiktok\.com\/(?:v|embed|video|t)\/|vt\.tiktok\.com\/|@[\w.-]+\/video\/)(\d+)/i);
+  if (ttMatch) return { platformId: 'tiktok', videoId: ttMatch[1] };
+
+  // Instagram Patterns (Reels, Posts)
+  const igMatch = url.match(/(?:instagram\.com\/(?:p|reels|reel)\/)([^/?#&]+)/i);
+  if (igMatch) return { platformId: 'instagram', videoId: igMatch[1] };
+
+  // Facebook Patterns (Watch, Reels, Video ID)
+  const fbMatch = url.match(/(?:facebook\.com\/(?:watch\/\?v=|video\.php\?v=|reels\/|share\/v\/)|fb\.watch\/)(\d+|[^/?#&]+)/i);
+  if (fbMatch) return { platformId: 'facebook', videoId: fbMatch[1] };
+
+  // Dailymotion Patterns
+  const dmMatch = url.match(/(?:dailymotion\.com\/video\/|dai\.ly\/)([^/?#&]+)/i);
+  if (dmMatch) return { platformId: 'dailymotion', videoId: dmMatch[1] };
+
+  return { platformId: null, videoId: null };
+};
+
+/**
+ * Helper to escape regex special characters in keywords
+ */
+const escapeRegExp = (string: string) => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+/**
  * Check content against platform-specific policies
  */
 export const checkContentAgainstPolicies = (
@@ -479,16 +516,26 @@ export const checkContentAgainstPolicies = (
   const policies = getPlatformPolicies(platformId);
   const lowerContent = content.toLowerCase();
   
+  let totalRiskWeight = 0;
+  let maxPossibleWeight = 0;
+
   const violations = policies.filter(policy => {
-    return policy.keywords.some(keyword => 
-      lowerContent.includes(keyword.toLowerCase())
-    );
+    const weight = getSeverityWeight(policy.severity);
+    maxPossibleWeight += weight;
+
+    return policy.keywords.some(keyword => {
+      // Safely escape keywords and use word boundaries
+      const regex = new RegExp(`\\b${escapeRegExp(keyword.toLowerCase())}\\b`, 'i');
+      const isMatch = regex.test(lowerContent);
+      if (isMatch) totalRiskWeight += weight;
+      return isMatch;
+    });
   });
 
-  // Calculate compliance score
-  const totalPolicies = policies.length;
-  const violatedPolicies = violations.length;
-  const score = Math.max(0, ((totalPolicies - violatedPolicies) / totalPolicies) * 100);
+  // Calculate score based on severity weights instead of just count
+  const score = maxPossibleWeight > 0 
+    ? Math.max(0, 100 - (totalRiskWeight / maxPossibleWeight * 100))
+    : 100;
 
   return {
     violations,

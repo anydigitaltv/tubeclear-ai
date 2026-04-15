@@ -205,7 +205,7 @@ class HistoricalDataVault {
     const videos = await this.getAllVideos();
     const scans = await this.getAllScans();
 
-    const uniquePlatforms = new Set(videos.map(v => v.platform));
+    const uniquePlatforms = new Set(videos.filter(v => v && v.platform).map(v => v.platform));
     const totalTokensSaved = scans.reduce((sum, scan) => sum + (scan.tokensUsed || 0), 0);
 
     return {
