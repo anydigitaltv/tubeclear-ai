@@ -157,15 +157,11 @@ export const extractVideoId = (videoUrl: string, platformId: string): string | n
     
     switch (platformId.toLowerCase()) {
       case "youtube": {
-        // Using the ro
-        // Support both tiktok.com and vt.tiktok.com
-        const pathParts = url.pathname.split('/');
-        const videoIndex = pathParts.findIndex(p => p === 'video');
-        if (videoIndex !== -1 && videoIndex < pathParts.length - 1) {
-          return pathParts[videoIndex + 1];
-        }
-        // For vt.tiktok.com short links
-        return pathParts[pathParts.length - 1] || null;
+        // Robust YouTube extraction matching livePolicyFetcher logic
+        const ytMatch = videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([^"&?\/\s]{11})/i);
+        if (ytMatch) return ytMatch[1];
+        const vParam = url.searchParams.get('v');
+        return vParam || url.pathname.split('/').pop() || null;
       }
       
       case "instagram": {
