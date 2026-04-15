@@ -474,26 +474,32 @@ export const getAllPolicies = (): PlatformPolicy[] => {
  * Solves the "Video details nahi mil saken" error
  */
 export const extractVideoInfo = (url: string): { platformId: string | null; videoId: string | null } => {
-  if (!url) return { platformId: null, videoId: null };
+  if (!url || typeof url !== 'string') return { platformId: null, videoId: null };
+
+  let cleanUrl = url.trim();
+  // Protocol normalization: Add https:// if missing to prevent URL parser crash
+  if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+    cleanUrl = 'https://' + cleanUrl;
+  }
 
   // YouTube Patterns (Standard, Shorts, Mobile, Live)
-  const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  const ytMatch = cleanUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([^"&?\/\s]{11})/i);
   if (ytMatch) return { platformId: 'youtube', videoId: ytMatch[1] };
 
   // TikTok Patterns (Desktop, Mobile vt.tiktok, User Profile)
-  const ttMatch = url.match(/(?:tiktok\.com\/(?:v|embed|video|t)\/|vt\.tiktok\.com\/|@[\w.-]+\/video\/)(\d+)/i);
+  const ttMatch = cleanUrl.match(/(?:tiktok\.com\/(?:v|embed|video|t)\/|vt\.tiktok\.com\/|@[\w.-]+\/video\/)(\d+)/i);
   if (ttMatch) return { platformId: 'tiktok', videoId: ttMatch[1] };
 
   // Instagram Patterns (Reels, Posts)
-  const igMatch = url.match(/(?:instagram\.com\/(?:p|reels|reel)\/)([^/?#&]+)/i);
+  const igMatch = cleanUrl.match(/(?:instagram\.com\/(?:p|reels|reel)\/)([^/?#&]+)/i);
   if (igMatch) return { platformId: 'instagram', videoId: igMatch[1] };
 
   // Facebook Patterns (Watch, Reels, Video ID)
-  const fbMatch = url.match(/(?:facebook\.com\/(?:watch\/\?v=|video\.php\?v=|reels\/|share\/v\/)|fb\.watch\/)(\d+|[^/?#&]+)/i);
+  const fbMatch = cleanUrl.match(/(?:facebook\.com\/(?:watch\/\?v=|video\.php\?v=|reels\/|share\/v\/)|fb\.watch\/)(\d+|[^/?#&]+)/i);
   if (fbMatch) return { platformId: 'facebook', videoId: fbMatch[1] };
 
   // Dailymotion Patterns
-  const dmMatch = url.match(/(?:dailymotion\.com\/video\/|dai\.ly\/)([^/?#&]+)/i);
+  const dmMatch = cleanUrl.match(/(?:dailymotion\.com\/video\/|dai\.ly\/)([^/?#&]+)/i);
   if (dmMatch) return { platformId: 'dailymotion', videoId: dmMatch[1] };
 
   return { platformId: null, videoId: null };

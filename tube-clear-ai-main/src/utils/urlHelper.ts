@@ -44,7 +44,10 @@ const PLATFORM_PATTERNS = {
  */
 export const validateUrl = (url: string): ValidationResult => {
   try {
-    const trimmedUrl = url.trim();
+    =
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+      trimmedUrl = 'https://' + trimmedUrl;
+    }
     
     // Check if it's a valid URL format
     let parsedUrl: URL;
@@ -154,14 +157,7 @@ export const extractVideoId = (videoUrl: string, platformId: string): string | n
     
     switch (platformId.toLowerCase()) {
       case "youtube": {
-        const vParam = url.searchParams.get('v');
-        if (vParam) return vParam;
-        
-        const pathParts = url.pathname.split('/');
-        return pathParts[pathParts.length - 1] || null;
-      }
-      
-      case "tiktok": {
+        // Using the ro
         // Support both tiktok.com and vt.tiktok.com
         const pathParts = url.pathname.split('/');
         const videoIndex = pathParts.findIndex(p => p === 'video');
