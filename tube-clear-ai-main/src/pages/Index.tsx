@@ -54,6 +54,18 @@ const Index = () => {
       navigate("/dashboard");
       return;
     }
+    if (section === "pending-scans") {
+      navigate("/pending-scans");
+      return;
+    }
+    if (section === "violations") {
+      navigate("/violations");
+      return;
+    }
+    if (section === "my-videos") {
+      navigate("/my-videos");
+      return;
+    }
     if (section === "history") {
       navigate("/history");
       return;
