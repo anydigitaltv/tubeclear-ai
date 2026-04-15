@@ -1,6 +1,6 @@
 // IndexedDB wrapper for Historical Data Vault
 const DB_NAME = "TubeClearVault";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented to fix missing object stores
 const STORES = {
   VIDEOS: "videos",
   SCANS: "scans",
@@ -259,8 +259,37 @@ class HistoricalDataVault {
   // Ensure DB is initialized
   private async ensureDB(): Promise<void> {
     if (!this.db) {
-      await this.init();
+      try {
+        await this.init();
+      } catch (error) {
+        // If DB init fails, try to delete and recreate
+        console.error('IndexedDB init failed, attempting reset:', error);
+        try {
+          await this.resetDatabase();
+          await this.init();
+        } catch (resetError) {
+          console.error('IndexedDB reset failed:', resetError);
+          throw resetError;
+        }
+      }
     }
+  }
+
+  // Reset database (clear corrupted DB)
+  private async resetDatabase(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      request.onsuccess = () => {
+        console.log('IndexedDB deleted successfully');
+        this.db = null;
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => {
+        console.warn('IndexedDB deletion blocked');
+        resolve(); // Continue anyway
+      };
+    });
   }
 
   // Clear all data (for testing/reset)
