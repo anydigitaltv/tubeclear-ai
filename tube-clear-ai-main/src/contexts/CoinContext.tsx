@@ -88,11 +88,72 @@ export const CoinProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, [user]);
 
+  const refetchBalance = useCallback(async () => {
+    if (user) {
+      // Reload from Supabase database
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("coins")
+          .eq("id", user.id)
+          .single();
+        
+        const { data: txs } = await supabase
+          .from("coin_transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        
+        setBalance((profile as any)?.coins || 0);
+        setTransactions((txs as any) || []);
+      } catch (error) {
+        console.error('Refetch balance error:', error);
+      }
+    } else {
+      // Guest mode - reload from localStorage
+      const storageKey = COIN_STORAGE_KEY;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setBalance(parsed.balance || 0);
+      }
+    }
+  }, [user]);
+
   const addTransaction = useCallback(async (
     type: CoinTransactionType,
     amount: number,
     description?: string
   ): Promise<boolean> => {
+    // SECURITY: For logged-in users, MUST use Supabase database
+    if (user) {
+      try {
+        // Insert transaction to database (triggers balance update via SQL trigger)
+        const { error } = await supabase
+          .from('coin_transactions')
+          .insert({
+            user_id: user.id,
+            type,
+            amount,
+            description: description || getDefaultDescription(type, amount)
+          });
+        
+        if (error) {
+          console.error('Database transaction failed:', error);
+          return false;
+        }
+        
+        // Reload balance from database
+        await refetchBalance();
+        return true;
+      } catch (error) {
+        console.error('Transaction error:', error);
+        return false;
+      }
+    }
+    
+    // Guest mode - local only (limited functionality)
     const newTransaction: CoinTransaction = {
       id: crypto.randomUUID(),
       type,
@@ -109,7 +170,7 @@ export const CoinProvider = ({ children }: { children: ReactNode }) => {
     saveToLocalStorage(newBalance, newTransactions);
 
     return true;
-  }, [balance, transactions, saveToLocalStorage]);
+  }, [balance, transactions, saveToLocalStorage, user, refetchBalance]);
 
   const addCoins = useCallback(async (
     amount: number,
@@ -132,16 +193,6 @@ export const CoinProvider = ({ children }: { children: ReactNode }) => {
   const canAfford = useCallback((amount: number): boolean => {
     return balance >= amount;
   }, [balance]);
-
-  const refetchBalance = useCallback(async () => {
-    // Reload from localStorage
-    const storageKey = user ? `${COIN_STORAGE_KEY}_${user.id}` : COIN_STORAGE_KEY;
-    const stored = localStorage.getItem(storageKey);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      setBalance(parsed.balance || 0);
-    }
-  }, [user]);
 
   return (
     <CoinContext.Provider

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter, TrendingDown, Terminal, Bot, Key, DatabaseZap, Plus, Trash2, LayoutDashboard } from "lucide-react";
+import { Shield, AlertTriangle, Check, X, RefreshCw, Bell, Smartphone, Ban, Info, Undo2, UserSearch, Coins, History, ShieldAlert, Lock, LogIn, Search, User, FileText, Activity, Zap, ShieldCheck, Settings2, Save, ShieldOff, Filter, TrendingDown, Terminal, Bot, Key, DatabaseZap, Plus, Trash2, LayoutDashboard, Eye, EyeOff, AlertCircle, Gauge } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePayment } from "@/contexts/PaymentContext";
 import { useAIEngines, type EngineId } from "@/contexts/AIEngineContext";
+import { encryptAPIKey, decryptAPIKey } from "@/utils/encryption";
 
 const AdminPanel = () => {
   const {
@@ -158,6 +159,7 @@ const AdminPanel = () => {
     try {
       // 1. PERFORM REAL API VALIDATION (Ping Test)
       let isValid = false;
+      let quotaInfo: any = null;
       const testPrompt = "ping";
       const key = newSystemKey.key.trim();
 
@@ -171,6 +173,12 @@ const AdminPanel = () => {
           }
         );
         isValid = response.ok;
+        
+        // Get quota info from headers
+        if (isValid) {
+          const remaining = response.headers.get('X-Quota-Remaining');
+          quotaInfo = remaining ? parseInt(remaining) : null;
+        }
       } else if (newSystemKey.engine === "groq") {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: 'POST',
@@ -191,14 +199,21 @@ const AdminPanel = () => {
         throw new Error("API Key verification failed. Key is either invalid or has no quota.");
       }
 
-      // 2. IF VALID, SAVE TO SUPABASE
+      // 2. ENCRYPT API KEY before storing
+      const { encrypted, iv } = await encryptAPIKey(key);
+
+      // 3. SAVE TO SUPABASE with encryption
       const { error } = await supabase.from('system_vault').insert({
         engine_id: newSystemKey.engine,
-        api_key: key,
-        is_active: true
+        api_key: encrypted,
+        api_key_iv: iv, // Store IV for decryption
+        key_name: `${newSystemKey.engine.toUpperCase()} Key`,
+        is_active: true,
+        status: 'ready'
       });
       if (error) throw error;
-      toast.success("Mubarak! Key valid hai aur System Vault mein add ho gayi.");
+      
+      toast.success("Mubarak! Key encrypted aur System Vault mein save ho gayi.");
       setNewSystemKey({ ...newSystemKey, key: "" });
       setIsAddingSystemKey(false);
       fetchSystemKeys();
