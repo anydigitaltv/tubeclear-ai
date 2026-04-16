@@ -215,7 +215,58 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
         }
         
         case "instagram": {
-          // Instagram Graph API or fallback
+          // PRIORITY 1: Instagram oEmbed (FREE - No API Key Required)
+          console.info("⚡ INSTAGRAM FREE MODE: Attempting oEmbed fetching...");
+          try {
+            const instagramOembed = await fetch(`https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(videoUrl)}&access_token=${import.meta.env.VITE_INSTAGRAM_TOKEN || ''}`);
+            
+            if (instagramOembed.ok) {
+              const data = await instagramOembed.json();
+              console.log('✅ Instagram oEmbed Success:', data.title);
+              return {
+                title: data.title || data.author_name || `Instagram Reel ${videoId}`,
+                description: data.author_name ? `By ${data.author_name}` : `Instagram video content`,
+                tags: ["instagram", "reel", "social-media"],
+                thumbnail: data.thumbnail_url,
+                channelName: data.author_name,
+                fetchedFrom: "native",
+              };
+            }
+          } catch (error) {
+            console.warn("Instagram oEmbed failed, trying OG tags:", error);
+          }
+
+          // PRIORITY 2: Try OG tags via CORS proxy (protected platform workaround)
+          try {
+            console.info("🔗 oEmbed failed, trying proxy scraping...");
+            const corsProxy = 'https://api.allorigins.win/raw?url=';
+            const response = await fetch(corsProxy + encodeURIComponent(videoUrl));
+            
+            if (response.ok) {
+              const html = await response.text();
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(html, 'text/html');
+              
+              const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
+              const ogDesc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
+              const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
+              
+              if (ogTitle || ogDesc) {
+                console.log('✅ Instagram OG Tags Success:', ogTitle);
+                return {
+                  title: ogTitle || `Instagram Reel ${videoId}`,
+                  description: ogDesc || `Instagram video content`,
+                  tags: ["instagram", "reel", "social-media"],
+                  thumbnail: ogImage,
+                  fetchedFrom: "native",
+                };
+              }
+            }
+          } catch (error) {
+            console.warn('OG tag scraping failed for Instagram:', error);
+          }
+          
+          // PRIORITY 3: Instagram Graph API (if token available)
           const instagramToken = process.env.VITE_INSTAGRAM_TOKEN;
           if (instagramToken) {
             try {
@@ -234,12 +285,45 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
                 };
               }
             } catch (error) {
-              console.warn('Instagram API fetch failed:', error);
+              console.warn('Instagram Graph API fetch failed:', error);
             }
           }
           
-          // Try OG tags via CORS proxy (protected platform workaround)
+          // FALLBACK: Basic metadata
+          console.warn('⚠️ All Instagram methods failed, using basic fallback');
+          return {
+            title: `Instagram Reel ${videoId}`,
+            description: `Instagram video content`,
+            tags: ["instagram", "reel", "social-media"],
+            fetchedFrom: "native",
+          };
+        }
+        
+        case "facebook": {
+          // PRIORITY 1: Facebook oEmbed (FREE - No API Key Required)
+          console.info("⚡ FACEBOOK FREE MODE: Attempting oEmbed fetching...");
           try {
+            const fbOembed = await fetch(`https://www.facebook.com/plugins/video/oembed.json/?url=${encodeURIComponent(videoUrl)}`);
+            
+            if (fbOembed.ok) {
+              const data = await fbOembed.json();
+              console.log('✅ Facebook oEmbed Success:', data.title);
+              return {
+                title: data.title || data.author_name || `Facebook Video ${videoId}`,
+                description: data.author_name ? `By ${data.author_name}` : `Facebook video content`,
+                tags: ["facebook", "video", "social-media"],
+                thumbnail: data.thumbnail_url,
+                channelName: data.author_name,
+                fetchedFrom: "native",
+              };
+            }
+          } catch (error) {
+            console.warn("Facebook oEmbed failed, trying OG tags:", error);
+          }
+
+          // PRIORITY 2: Try OG tags via CORS proxy
+          try {
+            console.info("🔗 oEmbed failed, trying proxy scraping...");
             const corsProxy = 'https://api.allorigins.win/raw?url=';
             const response = await fetch(corsProxy + encodeURIComponent(videoUrl));
             
@@ -253,30 +337,21 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
               const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
               
               if (ogTitle || ogDesc) {
+                console.log('✅ Facebook OG Tags Success:', ogTitle);
                 return {
-                  title: ogTitle || `Instagram Reel ${videoId}`,
-                  description: ogDesc || `Instagram video content`,
-                  tags: ["instagram", "reel", "social-media"],
+                  title: ogTitle || `Facebook Video ${videoId}`,
+                  description: ogDesc || `Facebook video content`,
+                  tags: ["facebook", "video", "social-media"],
                   thumbnail: ogImage,
                   fetchedFrom: "native",
                 };
               }
             }
           } catch (error) {
-            console.warn('OG tag scraping failed for Instagram:', error);
+            console.warn('OG tag scraping failed for Facebook:', error);
           }
           
-          // Fallback for Instagram
-          return {
-            title: `Instagram Reel ${videoId}`,
-            description: `Instagram video content`,
-            tags: ["instagram", "reel", "social-media"],
-            fetchedFrom: "native",
-          };
-        }
-        
-        case "facebook": {
-          // Facebook Graph API or fallback
+          // PRIORITY 3: Facebook Graph API (if token available)
           const fbToken = process.env.VITE_FACEBOOK_TOKEN;
           if (fbToken) {
             try {
@@ -295,11 +370,12 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
                 };
               }
             } catch (error) {
-              console.warn('Facebook API fetch failed:', error);
+              console.warn('Facebook Graph API fetch failed:', error);
             }
           }
           
-          // Fallback for Facebook
+          // FALLBACK: Basic metadata
+          console.warn('⚠️ All Facebook methods failed, using basic fallback');
           return {
             title: `Facebook Video ${videoId}`,
             description: `Facebook video content`,

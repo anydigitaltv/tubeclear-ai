@@ -14,6 +14,7 @@ import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contex
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
 import { useCoins } from "@/contexts/CoinContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePlatforms } from "@/contexts/PlatformContext";
 import { useAIWithRotation } from "@/utils/apiRotationWrapper";
 import { vault } from "@/utils/historicalVault";
 import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
@@ -27,6 +28,7 @@ const IGScan = () => {
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
   const { balance, spendCoins } = useCoins();
+  const { platforms } = usePlatforms();
   const { fetchMetadataWithFailover } = useMetadataFetcher();
   const { executeHybridScan, executePreScanOnly, generateWhyAnalysis, currentStage } = useHybridScanner();
   const { checkPoolHealth } = useAIWithRotation();
@@ -165,6 +167,19 @@ const IGScan = () => {
       return;
     }
 
+    // CONNECTION CHECK: Pehle dekho platform connected hai ya nahi
+    const isPlatformConnected = platforms.find(p => p.id === platformId)?.connected;
+    if (!isPlatformConnected) {
+      toast.error(`⚠️ ${platformId.charAt(0).toUpperCase() + platformId.slice(1)} account pehle connect karein!`, {
+        description: "Dashboard mein ja kar apna account connect karein, phir scan karein.",
+        action: {
+          label: "Go to Dashboard",
+          onClick: () => navigate("/dashboard")
+        }
+      });
+      return;
+    }
+
     setIsScanning(true);
     // Reset UX enhancement states
     setAiThoughts([]);
@@ -181,7 +196,8 @@ const IGScan = () => {
       setMetadata(fetchedMetadata);
       
       const pricing = calculateScanCost(fetchedMetadata.durationSeconds || 0);
-      setCurrentScanCost(pricing);
+      const costInCoins = typeof pricing === 'number' ? pricing : (pricing.userCostCoins ?? 10);
+      setCurrentScanCost(costInCoins);
 
       const poolHealth = checkPoolHealth();
       if (poolHealth.totalKeys === 0) {
@@ -269,7 +285,8 @@ const IGScan = () => {
         
         const poolHealth = checkPoolHealth();
         const hasUserAPIKey = poolHealth.totalKeys > 0;
-        const scanCost = calculateScanCost(fetchedMetadata.durationSeconds || 0);
+        const scanCostResult = calculateScanCost(fetchedMetadata.durationSeconds || 0);
+        const scanCost = typeof scanCostResult === 'number' ? scanCostResult : (scanCostResult.userCostCoins ?? 10);
         
         setPreScanResult({
           riskScore: preScanData.riskScore,

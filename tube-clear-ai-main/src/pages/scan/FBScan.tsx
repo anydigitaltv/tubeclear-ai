@@ -14,6 +14,7 @@ import { useHybridScanner, type FullReport, type DeepScanResult } from "@/contex
 import { useMetadataFetcher, type VideoMetadata } from "@/contexts/MetadataFetcherContext";
 import { useCoins } from "@/contexts/CoinContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePlatforms } from "@/contexts/PlatformContext";
 import { useAIWithRotation } from "@/utils/apiRotationWrapper";
 import { vault } from "@/utils/historicalVault";
 import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
@@ -27,6 +28,7 @@ const FBScan = () => {
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
   const { balance, spendCoins } = useCoins();
+  const { platforms } = usePlatforms();
   const { fetchMetadataWithFailover } = useMetadataFetcher();
   const { executeHybridScan, executePreScanOnly, generateWhyAnalysis } = useHybridScanner();
   const { checkPoolHealth } = useAIWithRotation();
@@ -178,6 +180,19 @@ const FBScan = () => {
       return;
     }
 
+    // CONNECTION CHECK: Pehle dekho platform connected hai ya nahi
+    const isPlatformConnected = platforms.find(p => p.id === platformId)?.connected;
+    if (!isPlatformConnected) {
+      toast.error(`⚠️ ${platformId.charAt(0).toUpperCase() + platformId.slice(1)} account pehle connect karein!`, {
+        description: "Dashboard mein ja kar apna account connect karein, phir scan karein.",
+        action: {
+          label: "Go to Dashboard",
+          onClick: () => navigate("/dashboard")
+        }
+      });
+      return;
+    }
+
     setIsScanning(true);
     
     // Reset UX enhancement states
@@ -200,8 +215,8 @@ const FBScan = () => {
       const hasUserAPIKey = !!userSettings?.geminiApiKey || !!userSettings?.groqApiKey;
       
       const pricingResult = calculateScanCost(fetchedMetadata.durationSeconds || 0, hasUserAPIKey);
-      const pricing = pricingResult.cost;
-      const isFree = pricingResult.isFree;
+      const pricing = typeof pricingResult === 'number' ? pricingResult : (pricingResult.userCostCoins ?? 10);
+      const isFree = typeof pricingResult === 'object' ? pricingResult.isFree : false;
       setCurrentScanCost(pricing);
       
       console.log(`Facebook Scan: ${isFree ? 'FREE (User API Key)' : `${pricing} coins (Admin API)`}`);
@@ -291,7 +306,7 @@ const FBScan = () => {
         const poolHealth = checkPoolHealth();
         const hasUserAPIKey = poolHealth.totalKeys > 0;
         const scanCostResult = calculateScanCost(fetchedMetadata.durationSeconds || 0, hasUserAPIKey);
-        const scanCost = scanCostResult.cost;
+        const scanCost = typeof scanCostResult === 'number' ? scanCostResult : (scanCostResult.userCostCoins ?? 10);
         
         setPreScanResult({
           riskScore: preScanData.riskScore,
