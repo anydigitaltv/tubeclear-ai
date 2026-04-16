@@ -1,4 +1,4 @@
-import { Shield, Newspaper, Settings, HelpCircle, LogIn, LogOut, User, Coins, Sparkles, LayoutGrid, Store, TrendingUp, History as HistoryIcon, Key, Clock, GitCompare, Bell, AlertTriangle, Video } from "lucide-react";
+import { Shield, Newspaper, Settings, HelpCircle, LogIn, LogOut, User, Coins, Sparkles, LayoutGrid, Store, TrendingUp, History as HistoryIcon, Key, Clock, GitCompare, Bell, AlertTriangle, Video, Fingerprint, Copyright } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCoins } from "@/contexts/CoinContext";
@@ -39,6 +39,7 @@ const navItems = [
   { id: "settings", label: "API Keys", icon: Settings },
   { id: "api-key-manager", label: "Key Manager", icon: Key },
   { id: "license-keys", label: "License Keys", icon: Key },
+  { id: "copyright-fingerprint", label: "Copyright Fingerprint", icon: Fingerprint },
 ];
 
 const AppSidebar = ({ activeSection, onNavigate }: AppSidebarProps) => {

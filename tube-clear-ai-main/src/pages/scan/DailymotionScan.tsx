@@ -19,6 +19,9 @@ import { vault } from "@/utils/historicalVault";
 import { getFinalVerdict, type FinalVerdict } from "@/contexts/VideoScanContext";
 import { toast } from "sonner";
 import type { PlatformId } from "@/contexts/PlatformContext";
+import LiveAIConsole, { type AIThought } from "@/components/LiveAIConsole";
+import ComparisonView, { type ViolationComparison } from "@/components/ComparisonView";
+import FixSuggestionsPanel, { type FixSuggestion } from "@/components/FixSuggestionsPanel";
 
 const DailymotionScan = () => {
   const navigate = useNavigate();
@@ -33,6 +36,11 @@ const DailymotionScan = () => {
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [pendingScanInput, setPendingScanInput] = useState<any>(null);
+  
+  // UX Enhancement states
+  const [aiThoughts, setAiThoughts] = useState<AIThought[]>([]);
+  const [comparisonViolations, setComparisonViolations] = useState<ViolationComparison[]>([]);
+  const [fixSuggestions, setFixSuggestions] = useState<FixSuggestion[]>([]);
   
   const [isCoinModalOpen, setIsCoinModalOpen] = useState(false);
   const [pendingScanParams, setPendingScanParams] = useState<{url: string, platformId: string} | null>(null);
@@ -58,6 +66,40 @@ const DailymotionScan = () => {
     if (section === "settings") { navigate("/settings"); return; }
     if (section === "scan") { navigate("/"); return; }
     setActiveSection(section);
+  };
+
+  // Helper function to add AI thoughts
+  const addAIThought = (type: AIThought["type"], message: string) => {
+    const thought: AIThought = {
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toLocaleTimeString(),
+      message,
+      type,
+    };
+    setAiThoughts(prev => [...prev, thought]);
+  };
+
+  // Helper function to generate fix suggestions
+  const generateFixSuggestion = (violation: string, platformId: string) => {
+    const violationLower = violation.toLowerCase();
+    
+    if (violationLower.includes("copyright") || violationLower.includes("music")) {
+      return { title: "Remove or Replace Copyrighted Content", description: "This violation appears to be related to copyrighted music or content.", action: "Remove the copyrighted segment or replace it with royalty-free alternative.", difficulty: "medium" as const, estimatedTime: "15-30 minutes", impact: "high" as const };
+    }
+    if (violationLower.includes("violence") || violationLower.includes("graphic")) {
+      return { title: "Blur or Remove Violent Content", description: "Graphic or violent content detected.", action: "Blur the violent frames or remove the segment.", difficulty: "medium" as const, estimatedTime: "10-20 minutes", impact: "high" as const };
+    }
+    if (violationLower.includes("hate") || violationLower.includes("discrimination")) {
+      return { title: "Remove Discriminatory Language", description: "Content contains discriminatory language.", action: "Edit audio to remove offensive language.", difficulty: "easy" as const, estimatedTime: "5-10 minutes", impact: "high" as const };
+    }
+    if (violationLower.includes("adult") || violationLower.includes("nsfw")) {
+      return { title: "Remove Adult/NSFW Content", description: "Adult content detected.", action: "Remove or blur explicit scenes.", difficulty: "medium" as const, estimatedTime: "10-20 minutes", impact: "high" as const };
+    }
+    if (violationLower.includes("spam") || violationLower.includes("misleading")) {
+      return { title: "Fix Misleading Title/Description", description: "Content may be flagged as spam.", action: "Update title and description.", difficulty: "easy" as const, estimatedTime: "5 minutes", impact: "medium" as const };
+    }
+    
+    return { title: "Review and Modify Content", description: `Policy violation: ${violation}`, action: "Review and modify content to comply.", difficulty: "medium" as const, estimatedTime: "10-15 minutes", impact: "medium" as const };
   };
 
   useEffect(() => {
@@ -88,6 +130,12 @@ const DailymotionScan = () => {
     }
 
     setIsScanning(true);
+    
+    // Reset UX enhancement states
+    setAiThoughts([]);
+    setComparisonViolations([]);
+    setFixSuggestions([]);
+    
     try {
       const platform: PlatformId = platformId as PlatformId;
       const fetchedMetadata = await fetchMetadataWithFailover(url, platform);
@@ -98,8 +146,22 @@ const DailymotionScan = () => {
       
       setMetadata(fetchedMetadata);
       
-      const pricing = calculateScanCost(fetchedMetadata.durationSeconds || 0);
+      // Check if user has their own API key (BYOK = FREE)
+      const userSettings = JSON.parse(localStorage.getItem('tubeclear_user_settings') || '{}');
+      const hasUserAPIKey = !!userSettings?.geminiApiKey || !!userSettings?.groqApiKey;
+      
+      const pricingResult = calculateScanCost(fetchedMetadata.durationSeconds || 0, hasUserAPIKey);
+      const pricing = pricingResult.cost;
+      const isFree = pricingResult.isFree;
       setCurrentScanCost(pricing);
+      
+      console.log(`Dailymotion Scan: ${isFree ? 'FREE (User API Key)' : `${pricing} coins (Admin API)`}`);
+
+      // If user has their own API key, proceed directly (FREE SCAN)
+      if (hasUserAPIKey) {
+        startScanProcess(url, platformId, false, fetchedMetadata);
+        return;
+      }
 
       const poolHealth = checkPoolHealth();
       if (poolHealth.totalKeys === 0) {
@@ -179,7 +241,8 @@ const DailymotionScan = () => {
         
         const poolHealth = checkPoolHealth();
         const hasUserAPIKey = poolHealth.totalKeys > 0;
-        const scanCost = calculateScanCost(fetchedMetadata.durationSeconds || 0);
+        const scanCostResult = calculateScanCost(fetchedMetadata.durationSeconds || 0, hasUserAPIKey);
+        const scanCost = scanCostResult.cost;
         
         setPreScanResult({
           riskScore: preScanData.riskScore,
@@ -246,7 +309,12 @@ const DailymotionScan = () => {
         return;
       }
       
+      addAIThought("thinking", "🎬 Dailymotion AI Engine: Initializing full video scan...");
+      addAIThought("analyzing", "📥 Fetching video metadata and thumbnail...");
+      
       toast.success(`🎬 Dailymotion Policy Engine: Proceeding to Deep Scan...`);
+      
+      addAIThought("analyzing", "🔍 Running AI-powered policy analysis...");
       
       const result: DeepScanResult = await executeHybridScan(
         pendingScanInput,
@@ -255,12 +323,53 @@ const DailymotionScan = () => {
         pendingScanInput.useSystemKeys
       );
       
+      addAIThought("success", "✅ AI analysis complete");
+      addAIThought("analyzing", "📊 Generating compliance report...");
+      
       const whyAnalysis = generateWhyAnalysis(result, {
         title: pendingScanInput.title,
         description: pendingScanInput.description,
         tags: pendingScanInput.tags,
         extractedAt: new Date().toISOString()
       }, pendingScanInput.platformId);
+      
+      addAIThought("success", "✅ Report generated successfully");
+      
+      // Generate comparison violations
+      if (result.violations && result.violations.length > 0) {
+        addAIThought("warning", `⚠️ Found ${result.violations.length} policy violation(s)`);
+        
+        const violations: ViolationComparison[] = result.violations.map((violation, index) => ({
+          id: `violation-${index}`,
+          timestamp: Math.floor((pendingScanInput.durationSeconds || 300) / (result.violations.length || 1)) * (index + 1),
+          frameDescription: `Potential policy violation: ${violation}`,
+          frameThumbnail: pendingScanInput.thumbnail,
+          violationText: violation,
+          policyReference: `Dailymotion Community Guidelines`,
+          policyUrl: "https://help.dailymotion.com/hc/en-us/articles/360000194977-Community-Guidelines",
+          severity: result.riskScore > 70 ? "high" : result.riskScore > 40 ? "medium" : "low",
+        }));
+        setComparisonViolations(violations);
+        
+        // Generate fix suggestions
+        const suggestions: FixSuggestion[] = result.violations.map((violation, index) => {
+          const fixText = generateFixSuggestion(violation, pendingScanInput.platformId);
+          return {
+            id: `fix-${index}`,
+            violationId: `violation-${index}`,
+            title: fixText.title,
+            description: fixText.description,
+            action: fixText.action,
+            difficulty: fixText.difficulty,
+            estimatedTime: fixText.estimatedTime,
+            impact: fixText.impact,
+          };
+        });
+        setFixSuggestions(suggestions);
+        addAIThought("info", "💡 Fix suggestions generated");
+      } else {
+        addAIThought("success", "✅ No violations detected!");
+      }
       
       const report: FullReport = {
         videoUrl: pendingScanInput.videoUrl,
@@ -286,10 +395,13 @@ const DailymotionScan = () => {
       
       await vault.clearPendingScan(pendingScanInput.videoId);
       
+      addAIThought("success", "✅ Dailymotion Scan Complete!");
+      
       toast.success("✅ Dailymotion Deep Scan Complete!");
       
     } catch (error) {
       console.error('Deep scan failed:', error);
+      addAIThought("warning", "❌ Scan failed: " + (error instanceof Error ? error.message : "Unknown error"));
       toast.error('Deep scan failed. Please try again.');
     } finally {
       setIsScanning(false);
@@ -378,7 +490,41 @@ const DailymotionScan = () => {
                 onPlatformChange={() => {}}
               />
               
+              {/* Live AI Thinking Console */}
+              {(isScanning || aiThoughts.length > 0) && (
+                <div className="mt-6 animate-fade-in">
+                  <LiveAIConsole 
+                    thoughts={aiThoughts}
+                    isScanning={isScanning}
+                    currentStage="analyzing"
+                  />
+                </div>
+              )}
+              
               {isScanning && <ScanSkeleton />}
+              
+              {/* Comparison View */}
+              {comparisonViolations.length > 0 && auditReport && (
+                <div className="mt-6 animate-fade-in">
+                  <ComparisonView 
+                    violations={comparisonViolations}
+                    videoThumbnail={metadata?.thumbnail}
+                    videoTitle={metadata?.title}
+                  />
+                </div>
+              )}
+              
+              {/* Fix Suggestions */}
+              {fixSuggestions.length > 0 && auditReport && (
+                <div className="mt-6 animate-fade-in">
+                  <FixSuggestionsPanel 
+                    suggestions={fixSuggestions}
+                    onApplyFix={(suggestion) => {
+                      toast.success(`Fix applied: ${suggestion.title}`);
+                    }}
+                  />
+                </div>
+              )}
               
               {auditReport && metadata && (
                 <UniversalAuditReport

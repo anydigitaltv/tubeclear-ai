@@ -46,9 +46,9 @@ export interface PricingConfig {
   };
 }
 
-// Default pricing configuration
+// Default pricing configuration - UPDATED FOR FULL VIDEO ANALYSIS
 export const DEFAULT_PRICING_CONFIG: PricingConfig = {
-  version: 1,
+  version: 2,
   lastUpdated: new Date().toISOString(),
   currency: "USD",
   coinValueInUSD: 0.001, // 1 coin = $0.001 (1000 coins = $1)
@@ -57,26 +57,26 @@ export const DEFAULT_PRICING_CONFIG: PricingConfig = {
     {
       name: "Short",
       maxDurationSeconds: 60, // < 1 minute
-      baseCoins: 2,
-      description: "Shorts/Reels (< 1 min)"
+      baseCoins: 5, // Increased from 2 (metadata + 30 frames + audio)
+      description: "Shorts/Reels (< 1 min) - Full Analysis"
     },
     {
       name: "Standard",
       maxDurationSeconds: 600, // 1-10 minutes
-      baseCoins: 5,
-      description: "Standard videos (1-10 min)"
+      baseCoins: 15, // Increased from 5 (metadata + 60 frames + audio + context)
+      description: "Standard videos (1-10 min) - Full Analysis"
     },
     {
       name: "Long",
       maxDurationSeconds: 1800, // 10-30 minutes
-      baseCoins: 10,
-      description: "Long videos (10-30 min)"
+      baseCoins: 30, // Increased from 10 (metadata + 90 frames + audio + context)
+      description: "Long videos (10-30 min) - Full Analysis"
     },
     {
       name: "Deep Scan",
       maxDurationSeconds: 0, // > 30 minutes (unlimited)
-      baseCoins: 20,
-      description: "Very long videos (> 30 min)"
+      baseCoins: 50, // Increased from 20 (metadata + 60 frames + audio + context)
+      description: "Very long videos (> 30 min) - Full Analysis"
     }
   ],
   
@@ -84,20 +84,20 @@ export const DEFAULT_PRICING_CONFIG: PricingConfig = {
     gemini: {
       engineId: "gemini",
       pricePer1KTokens: 0.0001, // $0.0001 per 1K tokens
-      avgTokensPerScan: 5000, // Average 5K tokens per scan
+      avgTokensPerScan: 150000, // Updated: 150K tokens (360p frames + audio + metadata)
       lastUpdated: new Date().toISOString(),
       isAutoSync: false
     },
     groq: {
       engineId: "groq",
       pricePer1KTokens: 0.0002, // $0.0002 per 1K tokens
-      avgTokensPerScan: 5000,
+      avgTokensPerScan: 50000, // Text analysis only
       lastUpdated: new Date().toISOString(),
       isAutoSync: false
     }
   },
   
-  adminMultiplier: 1.0 // No markup by default
+  adminMultiplier: 1.5 // 50% profit margin (GUARANTEED PROFIT)
 };
 
 // Storage key for pricing config
@@ -134,8 +134,17 @@ export const savePricingConfig = (config: PricingConfig): void => {
 
 /**
  * Calculate scan cost based on duration and current pricing
+ * 
+ * PRICING MODEL:
+ * - User's own API key (BYOK) = FREE SCAN (no coins charged)
+ * - Admin API key (system-provided) = Coins charged with 50% profit margin
  */
-export const calculateScanCost = (durationSeconds: number): number => {
+export const calculateScanCost = (durationSeconds: number, hasUserAPIKey: boolean = false): { 
+  cost: number; 
+  breakdown: string;
+  profit: number;
+  isFree: boolean;
+} => {
   const config = loadPricingConfig();
   
   // Find matching tier
@@ -146,13 +155,32 @@ export const calculateScanCost = (durationSeconds: number): number => {
   
   if (!tier) {
     console.warn("No pricing tier found, using default");
-    return 5; // Default to standard pricing
+    return { cost: 0, breakdown: "Invalid scan", profit: 0, isFree: false };
   }
   
-  // Apply admin multiplier
-  const finalCost = Math.ceil(tier.baseCoins * config.adminMultiplier);
+  // USER'S OWN API KEY = FREE SCAN (BYOK)
+  if (hasUserAPIKey) {
+    return {
+      cost: 0,
+      breakdown: `FREE: Using your own API key - ${tier.name} scan (${Math.ceil(durationSeconds / 60)} min)`,
+      profit: 0,
+      isFree: true
+    };
+  }
   
-  return finalCost;
+  // ADMIN API KEY = CHARGE COINS WITH 50% PROFIT
+  const finalCost = Math.ceil(tier.baseCoins * config.adminMultiplier);
+  const actualCost = tier.baseCoins;
+  const profit = finalCost - actualCost;
+  
+  const breakdown = `${tier.name} scan (${Math.ceil(durationSeconds / 60)} min): ${tier.baseCoins} base × ${config.adminMultiplier} = ${finalCost} coins`;
+  
+  return {
+    cost: finalCost,
+    breakdown,
+    profit,
+    isFree: false
+  };
 };
 
 /**

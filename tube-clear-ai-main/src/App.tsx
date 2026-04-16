@@ -28,6 +28,7 @@ import IGScan from "./pages/scan/IGScan.tsx";
 import DailymotionScan from "./pages/scan/DailymotionScan.tsx";
 import VideoViolations from "./pages/VideoViolations.tsx";
 import MyVideos from "./pages/MyVideos.tsx";
+import CopyrightFingerprint from "./pages/CopyrightFingerprint.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const App = () => (
@@ -63,6 +64,7 @@ const App = () => (
         <Route path="/scan/facebook" element={<FBScan />} />
         <Route path="/scan/instagram" element={<IGScan />} />
         <Route path="/scan/dailymotion" element={<DailymotionScan />} />
+        <Route path="/copyright-fingerprint" element={<CopyrightFingerprint />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
