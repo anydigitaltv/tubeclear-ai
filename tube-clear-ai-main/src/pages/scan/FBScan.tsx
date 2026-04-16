@@ -229,8 +229,22 @@ const FBScan = () => {
 
       const poolHealth = checkPoolHealth();
       if (poolHealth.totalKeys === 0) {
+        // Save to pending for resume
+        const videoId = url.split('/').filter(Boolean).pop() || 'unknown';
+        await vault.savePendingScan({
+          videoId,
+          platformId: platform,
+          title: fetchedMetadata.title,
+          description: fetchedMetadata.description,
+          tags: Array.isArray(fetchedMetadata.tags) ? fetchedMetadata.tags : [],
+          thumbnail: fetchedMetadata.thumbnail,
+          videoUrl: url
+        });
+        
         if (isGuest) {
-          toast.error("Guest mode mein coins scan ke liye login zaroori hai ya apni API key add karein.");
+          toast.error("Guest mode mein coins scan ke liye login zaroori hai ya apni API key add karein.", {
+            description: "Scan pending save ho gaya hai. Login karke continue karein."
+          });
           setIsScanning(false);
           return;
         }
@@ -242,10 +256,43 @@ const FBScan = () => {
       }
 
       startScanProcess(url, platformId, false, fetchedMetadata);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Initial metadata fetch failed:', error);
-      toast.error('Video details nahi mil saken. URL check karein.');
       setIsScanning(false);
+      
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('Metadata fetch failed') || errorMessage.includes('Please add your FREE Gemini API key')) {
+        const videoId = url.split('/').filter(Boolean).pop() || 'unknown';
+        await vault.savePendingScan({
+          videoId,
+          platformId: platformId as PlatformId,
+          title: 'Metadata Pending',
+          description: 'Metadata fetch failed - API key required',
+          tags: [],
+          thumbnail: '',
+          videoUrl: url
+        });
+        
+        toast.error("⚠️ Metadata fetch nahi ho saka!", {
+          description: "Is video ka metadata fetch nahi ho saka. Better results ke liye FREE Gemini API key add karein.",
+          action: {
+            label: "Get FREE API Key",
+            onClick: () => window.open('https://aistudio.google.com/app/apikey', '_blank')
+          },
+          duration: 8000
+        });
+        
+        toast.info("💡 Pending scan save ho gaya hai. API key add karke dobara scan karein.", {
+          description: "Settings mein ja kar API key add karein, phir dobara scan karein.",
+          action: {
+            label: "Go to Settings",
+            onClick: () => navigate("/settings")
+          },
+          duration: 8000
+        });
+      } else {
+        toast.error('Video details nahi mil saken. URL check karein.');
+      }
     }
   };
 

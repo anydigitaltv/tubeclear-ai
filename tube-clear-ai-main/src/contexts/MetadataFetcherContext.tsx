@@ -726,8 +726,8 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
       }
     }
 
-    // All engines failed - return minimal metadata instead of throwing
-    console.error('❌ All AI engines failed to generate metadata');
+    // All engines failed - THROW ERROR instead of returning fake metadata
+    console.error('❌ All metadata fetching methods failed');
     
     setLastFailoverResult({
       success: false,
@@ -738,14 +738,12 @@ export const MetadataFetcherProvider = ({ children }: { children: ReactNode }) =
     
     setIsFetching(false);
     
-    // Return minimal metadata instead of failing
-    return {
-      title: "Video Analysis Unavailable",
-      description: "Unable to fetch video metadata. Please check the video URL and try again.",
-      tags: ["metadata-unavailable"],
-      fetchedFrom: "ai_failover",
-      aiEngineUsed: "none",
-    };
+    // THROW ERROR - Don't return fake metadata
+    throw new Error(
+      `Metadata fetch failed for ${platformId}. ` +
+      `Please add your FREE Gemini API key in Settings for better results. ` +
+      `Get free key from: https://aistudio.google.com/app/apikey`
+    );
   }, [fetchNativeMetadata]);
 
   const getLastFailoverResult = useCallback(() => {
