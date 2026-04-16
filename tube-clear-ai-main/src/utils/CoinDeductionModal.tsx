@@ -33,7 +33,7 @@ export const CoinDeductionModal = ({
             Official Auditor Mode
           </DialogTitle>
           <DialogDescription className="text-slate-400 pt-2">
-            Bhai, aapne apni API key add nahi ki hai. Is scan ke liye humari **Admin High-Speed Keys** istemal hongi.
+            Is scan ke liye Admin High-Speed Keys istemal hongi.
             {userBalance === 0 && (
               <p className="mt-2 text-yellow-400 font-semibold">
                 ⚠️ Aapke paas 0 coins hain. Scan shuru karne ke liye coins khareedein!
@@ -55,6 +55,13 @@ export const CoinDeductionModal = ({
             <span className="text-slate-400">Aapka Balance:</span>
             <span className={hasEnoughCoins ? "text-green-400" : "text-red-400"}>
               {userBalance} Coins
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between px-2 text-sm">
+            <span className="text-slate-400">Scan Ke Baad Balance:</span>
+            <span className="text-blue-400 font-semibold">
+              {userBalance - coinCost} Coins
             </span>
           </div>
 

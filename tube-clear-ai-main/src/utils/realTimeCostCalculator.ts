@@ -66,8 +66,22 @@ const AI_ENGINE_PRICES: Record<string, AIEngineCost> = {
 // Coin value (1 coin = $0.001 USD)
 const COIN_VALUE_USD = 0.001;
 
-// Admin profit margin (55%)
-const ADMIN_PROFIT_MARGIN = 0.55;
+/**
+ * Get admin profit margin from localStorage config
+ * Default: 0.55 (55%) if not set
+ */
+const getAdminProfitMargin = (): number => {
+  try {
+    const storedConfig = localStorage.getItem('tubeclear_pricing_config');
+    if (storedConfig) {
+      const config = JSON.parse(storedConfig);
+      return config.adminProfitMargin ?? 0.55;
+    }
+  } catch (error) {
+    console.error('Failed to load profit margin from config:', error);
+  }
+  return 0.55; // Default 55%
+};
 
 /**
  * Calculate token usage for metadata analysis
@@ -191,7 +205,8 @@ export const calculateRealTimeScanCost = (
   // Convert to coins
   const adminCostCoins = Math.ceil(totalCostUSD / COIN_VALUE_USD);
   
-  // Add admin profit margin (30%)
+  // Add admin profit margin (from config)
+  const ADMIN_PROFIT_MARGIN = getAdminProfitMargin();
   const profitCoins = Math.ceil(adminCostCoins * ADMIN_PROFIT_MARGIN);
   const userCostCoins = adminCostCoins + profitCoins;
   
@@ -301,4 +316,31 @@ export const formatDuration = (seconds: number): string => {
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ${seconds % 60}s`;
+};
+
+/**
+ * Update admin profit stats after a scan
+ * Call this when a scan completes using admin API keys
+ */
+export const updateAdminProfitStats = (userCoinsPaid: number, actualAdminCost: number): void => {
+  try {
+    const storedStats = localStorage.getItem('tubeclear_profit_stats');
+    let stats = storedStats ? JSON.parse(storedStats) : {
+      totalScans: 0,
+      totalUserCoins: 0,
+      totalAdminCost: 0,
+      totalProfit: 0,
+      profitMarginPercent: 55
+    };
+
+    stats.totalScans += 1;
+    stats.totalUserCoins += userCoinsPaid;
+    stats.totalAdminCost += actualAdminCost;
+    stats.totalProfit += (userCoinsPaid - actualAdminCost);
+
+    localStorage.setItem('tubeclear_profit_stats', JSON.stringify(stats));
+    console.log(`✅ Admin profit stats updated: Scan #${stats.totalScans}, Profit: ${userCoinsPaid - actualAdminCost} coins`);
+  } catch (error) {
+    console.error('Failed to update admin profit stats:', error);
+  }
 };

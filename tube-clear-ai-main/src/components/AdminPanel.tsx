@@ -72,6 +72,16 @@ const AdminPanel = () => {
   });
   const [isSavingPrices, setIsSavingPrices] = useState(false);
 
+  // Profit & Cost Tracking State
+  const [profitStats, setProfitStats] = useState({
+    totalScans: 0,
+    totalUserCoins: 0, // Jo users ne pay kiye
+    totalAdminCost: 0, // Admin API keys ka actual kharcha
+    totalProfit: 0, // Admin profit
+    profitMarginPercent: 55 // Default 55%
+  });
+  const [newProfitMargin, setNewProfitMargin] = useState(55);
+
   // IP Security State
   const [ipBlacklist, setIpBlacklist] = useState<any[]>([]);
   const [isAutoBlockEnabled, setIsAutoBlockEnabled] = useState(() => {
@@ -121,6 +131,19 @@ const AdminPanel = () => {
 
       // Fetch System Keys from Vault
       fetchSystemKeys();
+
+      // Load Profit Stats from localStorage
+      const storedProfitStats = localStorage.getItem('tubeclear_profit_stats');
+      if (storedProfitStats) {
+        setProfitStats(JSON.parse(storedProfitStats));
+      }
+      
+      // Load profit margin from pricing config
+      const storedConfig = localStorage.getItem('tubeclear_pricing_config');
+      if (storedConfig) {
+        const config = JSON.parse(storedConfig);
+        setNewProfitMargin(Math.round(config.adminProfitMargin * 100));
+      }
     };
     fetchStats();
     setSystemLogs([{ id: 1, event: "Admin session active", time: new Date().toLocaleTimeString() }]);
@@ -403,17 +426,51 @@ const AdminPanel = () => {
     try {
       // In production, save to Supabase table 'system_settings'
       localStorage.setItem("tubeclear_global_pricing", JSON.stringify(globalPrices));
-      
+        
       toast.success("Global prices updated successfully!");
       setSystemLogs(prev => [{ 
         id: Date.now(), 
-        event: `Admin updated global pricing: Base ${globalPrices.pre_scan_base}, Rate ${globalPrices.deep_scan_per_min}`, 
+        event: `Admin updated global pricing: Base ${globalPrices.pre_scan_base}, Rate ${globalPrices.deep_scan_per_min}`,
         time: new Date().toLocaleTimeString() 
       }, ...prev]);
     } catch (err) {
       toast.error("Failed to save prices.");
     } finally {
       setIsSavingPrices(false);
+    }
+  };
+  
+  // Update Profit Margin
+  const handleUpdateProfitMargin = async () => {
+    try {
+      const marginDecimal = newProfitMargin / 100;
+        
+      // Load existing config
+      const storedConfig = localStorage.getItem('tubeclear_pricing_config');
+      let config = storedConfig ? JSON.parse(storedConfig) : {};
+        
+      // Update profit margin
+      config.adminProfitMargin = marginDecimal;
+      config.lastUpdated = new Date().toISOString();
+        
+      localStorage.setItem('tubeclear_pricing_config', JSON.stringify(config));
+        
+      // Update profit stats
+      const updatedStats = {
+        ...profitStats,
+        profitMarginPercent: newProfitMargin
+      };
+      setProfitStats(updatedStats);
+      localStorage.setItem('tubeclear_profit_stats', JSON.stringify(updatedStats));
+        
+      toast.success(`Profit margin updated to ${newProfitMargin}%`);
+      setSystemLogs(prev => [{ 
+        id: Date.now(), 
+        event: `Admin changed profit margin to ${newProfitMargin}%`,
+        time: new Date().toLocaleTimeString() 
+      }, ...prev]);
+    } catch (err) {
+      toast.error("Failed to update profit margin.");
     }
   };
 
@@ -933,12 +990,101 @@ const AdminPanel = () => {
         </TabsContent>
 
         <TabsContent value="pricing" className="mt-4">
+          {/* Profit & Cost Tracking Section */}
+          <Card className="glass-card border-green-500/20 mb-4">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-green-400">
+                <TrendingDown className="h-5 w-5" />
+                Admin Profit & Cost Tracking
+              </CardTitle>
+              <CardDescription>API keys ka kharcha, profit aur savings yahan nazar aayenge</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-xs text-blue-400 uppercase font-bold mb-1">Total Scans</p>
+                  <p className="text-2xl font-bold text-blue-300">{profitStats.totalScans}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                  <p className="text-xs text-yellow-400 uppercase font-bold mb-1">User Coins (Revenue)</p>
+                  <p className="text-2xl font-bold text-yellow-300">{profitStats.totalUserCoins}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <p className="text-xs text-red-400 uppercase font-bold mb-1">Admin API Cost</p>
+                  <p className="text-2xl font-bold text-red-300">{profitStats.totalAdminCost}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                  <p className="text-xs text-green-400 uppercase font-bold mb-1">Net Profit</p>
+                  <p className="text-2xl font-bold text-green-300">{profitStats.totalProfit}</p>
+                </div>
+              </div>
+
+              {/* Profit Margin Control */}
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Admin Profit Margin</h4>
+                    <p className="text-xs text-muted-foreground">Current: {profitStats.profitMarginPercent}%</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      min="0"
+                      max="100"
+                      className="w-20 bg-slate-800 border border-border/50 rounded-lg h-10 px-3 text-center text-sm focus:ring-1 focus:ring-green-500 outline-none"
+                      value={newProfitMargin}
+                      onChange={(e) => setNewProfitMargin(parseInt(e.target.value) || 0)}
+                    />
+                    <span className="text-sm font-bold text-green-400">%</span>
+                    <Button 
+                      size="sm" 
+                      onClick={handleUpdateProfitMargin}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Save className="h-4 w-4 mr-1" /> Update
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                  <p className="text-xs text-green-300">
+                    💡 <strong>Example:</strong> Agar margin 55% hai aur scan ka actual cost 10 coins hai, to user 15 coins pay karega (10 + 5 profit).
+                  </p>
+                </div>
+              </div>
+
+              {/* Savings Info */}
+              <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                <h4 className="text-sm font-bold text-purple-400 mb-2">Admin Savings & Efficiency</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xs text-purple-300">360p Quality Savings</p>
+                    <p className="text-lg font-bold text-purple-200">~90%</p>
+                    <p className="text-[10px] text-muted-foreground">vs 1080p full quality</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-300">Smart Frame Sampling</p>
+                    <p className="text-lg font-bold text-purple-200">30-120 frames</p>
+                    <p className="text-[10px] text-muted-foreground">Duration ke hisaab se</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-300">BYOK (User's API Key)</p>
+                    <p className="text-lg font-bold text-purple-200">FREE</p>
+                    <p className="text-[10px] text-muted-foreground">Admin pays nothing</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Existing Pricing Controls */}
           <Card className="glass-card border-blue-500/20">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-blue-400">
                 <Settings2 className="h-5 w-5" />
-                Global Scan Pricing Control
+                Base Scan Pricing Control
               </CardTitle>
+              <CardDescription>Minimum aur base costs set karein (dynamic pricing ke liye)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -965,7 +1111,7 @@ const AdminPanel = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground uppercase font-bold">Admin Profit Margin (Multiplier)</label>
+                  <label className="text-xs text-muted-foreground uppercase font-bold">Admin Profit Margin (Multiplier - Legacy)</label>
                   <input 
                     type="number" 
                     step="0.1"
@@ -973,7 +1119,7 @@ const AdminPanel = () => {
                     value={globalPrices.admin_margin}
                     onChange={(e) => setGlobalPrices({...globalPrices, admin_margin: parseFloat(e.target.value)})}
                   />
-                  <p className="text-[10px] text-muted-foreground italic">Example: 1.2 = 20% Extra for Admin safety/profit</p>
+                  <p className="text-[10px] text-muted-foreground italic">⚠️ Use above % instead. Legacy: 1.2 = 20% extra</p>
                 </div>
 
                 <div className="space-y-2">
@@ -995,7 +1141,7 @@ const AdminPanel = () => {
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2"
                 >
                   {isSavingPrices ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Apply New Pricing Globally
+                  Apply Pricing Changes
                 </Button>
                 <p className="text-center text-[10px] text-muted-foreground mt-3 uppercase tracking-widest">
                   ⚠️ Ye tabdeeli foran tamam users par apply ho jayegi
