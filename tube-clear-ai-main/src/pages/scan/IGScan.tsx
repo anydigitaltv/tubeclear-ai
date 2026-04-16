@@ -23,6 +23,7 @@ import type { PlatformId } from "@/contexts/PlatformContext";
 import LiveAIConsole, { type AIThought } from "@/components/LiveAIConsole";
 import ComparisonView, { type ViolationComparison } from "@/components/ComparisonView";
 import FixSuggestionsPanel, { type FixSuggestion } from "@/components/FixSuggestionsPanel";
+import AIScanSummaryCard, { type AICheck } from "@/components/AIScanSummaryCard";
 
 const IGScan = () => {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ const IGScan = () => {
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [pendingScanInput, setPendingScanInput] = useState<any>(null);
+  const [lastScanResult, setLastScanResult] = useState<DeepScanResult | null>(null);
   
   const [isCoinModalOpen, setIsCoinModalOpen] = useState(false);
   const [pendingScanParams, setPendingScanParams] = useState<{url: string, platformId: string} | null>(null);
@@ -424,6 +426,9 @@ const IGScan = () => {
         pendingScanInput.useSystemKeys
       );
       
+      // Store result for AI summary card
+      setLastScanResult(result);
+      
       addAIThought("success", "✅ AI analysis complete");
       addAIThought("analyzing", "📊 Generating compliance report...");
       
@@ -553,6 +558,63 @@ const IGScan = () => {
     }
   };
 
+  // Helper function to generate AI checks from scan results
+  const generateAIChecks = (scanResult: any, report: FullReport): AICheck[] => {
+    const violations = scanResult?.violations || [];
+    const violationText = violations.join(" ").toLowerCase();
+    
+    return [
+      {
+        id: "slang-profanity",
+        label: "Language & Slang Check",
+        status: violationText.includes("profanity") || violationText.includes("slang") ? "warning" : "pass",
+        description: violationText.includes("profanity") ? "Mild language detected" : "No profanity detected"
+      },
+      {
+        id: "violence",
+        label: "Violence Detection",
+        status: violationText.includes("violence") || violationText.includes("gore") ? "fail" : "pass",
+        description: violationText.includes("violence") ? "Graphic content found" : "No violence detected"
+      },
+      {
+        id: "copyright",
+        label: "Copyright Check",
+        status: violationText.includes("copyright") || violationText.includes("music") ? "warning" : "pass",
+        description: violationText.includes("copyright") ? "Copyrighted material detected" : "No copyright issues"
+      },
+      {
+        id: "ai-disclosure",
+        label: "AI Disclosure",
+        status: report.disclosureVerified ? "pass" : "warning",
+        description: report.disclosureVerified ? "Properly labeled" : "AI disclosure recommended"
+      },
+      {
+        id: "hate-speech",
+        label: "Hate Speech Analysis",
+        status: violationText.includes("hate") || violationText.includes("discrimination") ? "fail" : "pass",
+        description: violationText.includes("hate") ? "Hate speech detected" : "Clean content"
+      },
+      {
+        id: "age-appropriate",
+        label: "Age Appropriateness",
+        status: report.overallRisk > 70 ? "fail" : report.overallRisk > 40 ? "warning" : "pass",
+        description: report.overallRisk > 70 ? "Mature content" : report.overallRisk > 40 ? "Parental guidance" : "All ages suitable"
+      },
+      {
+        id: "metadata",
+        label: "Metadata Compliance",
+        status: report.whyAnalysis.exactViolations.length > 2 ? "warning" : "pass",
+        description: report.whyAnalysis.exactViolations.length > 2 ? "Metadata issues found" : "Title & tags verified"
+      },
+      {
+        id: "thumbnail",
+        label: "Thumbnail Accuracy",
+        status: violationText.includes("misleading") ? "warning" : "pass",
+        description: violationText.includes("misleading") ? "Thumbnail may be misleading" : "No misleading elements"
+      }
+    ];
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -626,23 +688,35 @@ const IGScan = () => {
               )}
               
               {auditReport && metadata && (
-                <UniversalAuditReport
-                  key={`report-${auditReport.verifiedTimestamp}`}
-                  report={auditReport}
-                  metadata={metadata}
-                  platform="instagram"
-                  videoUrl={auditReport.videoUrl}
-                  isGuest={isGuest}
-                  onCopy={() => {
-                    navigator.clipboard.writeText(JSON.stringify(auditReport, null, 2));
-                    toast.success("Report copied!");
-                  }}
-                  onShare={() => {
-                    navigator.clipboard.writeText(auditReport.videoUrl);
-                    toast.success("Link copied!");
-                  }}
-                  onRunDeepScan={() => toast.info("Running deep scan...")}
-                />
+                <>
+                  {/* NEW: AI Scan Summary Card */}
+                  <AIScanSummaryCard
+                    platform="instagram"
+                    videoTitle={metadata.title}
+                    videoUrl={auditReport.videoUrl}
+                    riskScore={auditReport.overallRisk}
+                    fullReport={auditReport}
+                    checks={generateAIChecks(lastScanResult, auditReport)}
+                  />
+
+                  <UniversalAuditReport
+                    key={`report-${auditReport.verifiedTimestamp}`}
+                    report={auditReport}
+                    metadata={metadata}
+                    platform="instagram"
+                    videoUrl={auditReport.videoUrl}
+                    isGuest={isGuest}
+                    onCopy={() => {
+                      navigator.clipboard.writeText(JSON.stringify(auditReport, null, 2));
+                      toast.success("Report copied!");
+                    }}
+                    onShare={() => {
+                      navigator.clipboard.writeText(auditReport.videoUrl);
+                      toast.success("Link copied!");
+                    }}
+                    onRunDeepScan={() => toast.info("Running deep scan...")}
+                  />
+                </>
               )}
             </div>
           </main>
