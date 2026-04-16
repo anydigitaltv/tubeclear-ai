@@ -1,19 +1,27 @@
 /**
  * Dynamic Pricing Configuration System
- * Admin can update coin prices based on AI engine costs
- * Prices automatically adjust when AI providers change their rates
+ * 
+ * UPDATED: Now uses REAL-TIME cost calculation based on:
+ * - Live AI engine prices (Gemini, Groq)
+ * - Video duration (length-based)
+ * - 360p quality optimization
+ * - Actual token usage
+ * 
+ * NO FIXED PRICES - Everything calculated dynamically!
  */
+
+import { calculateRealTimeScanCost, type ScanCostBreakdown } from '@/utils/realTimeCostCalculator';
 
 export interface PricingTier {
   name: string;
   maxDurationSeconds: number; // 0 = unlimited (for max tier)
-  baseCoins: number;
+  baseCoins: number; // DEPRECATED - Now calculated dynamically
   description: string;
 }
 
 export interface AIEnginePricing {
   engineId: string;
-  pricePer1KTokens: number; // USD
+  pricePer1KTokens: number; // USD (LIVE PRICE)
   avgTokensPerScan: number;
   lastUpdated: string;
   isAutoSync: boolean;
@@ -25,17 +33,20 @@ export interface PricingConfig {
   currency: string;
   coinValueInUSD: number; // 1 coin = $X USD
   
-  // Pricing tiers based on video duration
+  // Pricing tiers (DEPRECATED - for backward compatibility only)
   tiers: PricingTier[];
   
-  // AI engine pricing (for auto-calculation)
+  // AI engine pricing (LIVE PRICES)
   engines: {
     gemini: AIEnginePricing;
     groq: AIEnginePricing;
   };
   
-  // Admin multiplier (optional, for profit margin)
-  adminMultiplier: number; // 1.0 = no markup, 1.5 = 50% markup
+  // Admin profit margin (30%)
+  adminProfitMargin: number;
+  
+  // Video quality for analysis
+  defaultQuality: '360p' | '720p' | '1080p';
   
   // Price change notification
   lastPriceChange?: {
@@ -46,44 +57,45 @@ export interface PricingConfig {
   };
 }
 
-// Default pricing configuration - UPDATED FOR FULL VIDEO ANALYSIS
+// Default pricing configuration - UPDATED FOR REAL-TIME CALCULATION
 export const DEFAULT_PRICING_CONFIG: PricingConfig = {
-  version: 2,
+  version: 3, // Updated to v3 for real-time pricing
   lastUpdated: new Date().toISOString(),
   currency: "USD",
   coinValueInUSD: 0.001, // 1 coin = $0.001 (1000 coins = $1)
   
+  // DEPRECATED: Kept for backward compatibility only
   tiers: [
     {
       name: "Short",
-      maxDurationSeconds: 60, // < 1 minute
-      baseCoins: 5, // Increased from 2 (metadata + 30 frames + audio)
-      description: "Shorts/Reels (< 1 min) - Full Analysis"
+      maxDurationSeconds: 60,
+      baseCoins: 0, // Now calculated dynamically
+      description: "Shorts/Reels (< 1 min) - Real-time pricing"
     },
     {
       name: "Standard",
-      maxDurationSeconds: 600, // 1-10 minutes
-      baseCoins: 15, // Increased from 5 (metadata + 60 frames + audio + context)
-      description: "Standard videos (1-10 min) - Full Analysis"
+      maxDurationSeconds: 600,
+      baseCoins: 0, // Now calculated dynamically
+      description: "Standard videos (1-10 min) - Real-time pricing"
     },
     {
       name: "Long",
-      maxDurationSeconds: 1800, // 10-30 minutes
-      baseCoins: 30, // Increased from 10 (metadata + 90 frames + audio + context)
-      description: "Long videos (10-30 min) - Full Analysis"
+      maxDurationSeconds: 1800,
+      baseCoins: 0, // Now calculated dynamically
+      description: "Long videos (10-30 min) - Real-time pricing"
     },
     {
       name: "Deep Scan",
-      maxDurationSeconds: 0, // > 30 minutes (unlimited)
-      baseCoins: 50, // Increased from 20 (metadata + 60 frames + audio + context)
-      description: "Very long videos (> 30 min) - Full Analysis"
+      maxDurationSeconds: 0,
+      baseCoins: 0, // Now calculated dynamically
+      description: "Very long videos (> 30 min) - Real-time pricing"
     }
   ],
   
   engines: {
     gemini: {
       engineId: "gemini",
-      pricePer1KTokens: 0.0001, // $0.0001 per 1K tokens
+      pricePer1KTokens: 0.0001, // $0.0001 per 1K tokens (Gemini 1.5 Flash)
       avgTokensPerScan: 150000, // Updated: 150K tokens (360p frames + audio + metadata)
       lastUpdated: new Date().toISOString(),
       isAutoSync: false
@@ -97,7 +109,8 @@ export const DEFAULT_PRICING_CONFIG: PricingConfig = {
     }
   },
   
-  adminMultiplier: 1.5 // 50% profit margin (GUARANTEED PROFIT)
+  adminProfitMargin: 0.30, // 30% profit margin
+  defaultQuality: '360p' // 360p = 90% token savings
 };
 
 // Storage key for pricing config
@@ -133,155 +146,87 @@ export const savePricingConfig = (config: PricingConfig): void => {
 };
 
 /**
- * Calculate scan cost based on duration and current pricing
+ * Calculate scan cost using REAL-TIME dynamic pricing
  * 
- * PRICING MODEL:
- * - User's own API key (BYOK) = FREE SCAN (no coins charged)
- * - Admin API key (system-provided) = Coins charged with 50% profit margin
+ * @param durationSeconds - Video duration in seconds
+ * @param hasUserAPIKey - Whether user has own API key (FREE if true)
+ * @param engineId - AI engine to use (default: gemini)
+ * @param videoQuality - Video quality (default: 360p)
+ * @returns Complete cost breakdown with transparency
  */
-export const calculateScanCost = (durationSeconds: number, hasUserAPIKey: boolean = false): { 
-  cost: number; 
-  breakdown: string;
-  profit: number;
-  isFree: boolean;
-} => {
-  const config = loadPricingConfig();
-  
-  // Find matching tier
-  const tier = config.tiers.find(t => {
-    if (t.maxDurationSeconds === 0) return true; // Unlimited tier
-    return durationSeconds <= t.maxDurationSeconds;
-  });
-  
-  if (!tier) {
-    console.warn("No pricing tier found, using default");
-    return { cost: 0, breakdown: "Invalid scan", profit: 0, isFree: false };
-  }
-  
-  // USER'S OWN API KEY = FREE SCAN (BYOK)
+export const calculateScanCost = (
+  durationSeconds: number,
+  hasUserAPIKey: boolean = false,
+  engineId: string = 'gemini',
+  videoQuality: '360p' | '720p' | '1080p' = '360p'
+): ScanCostBreakdown & { isFree: boolean } => {
+  // User's own API key = FREE SCAN
   if (hasUserAPIKey) {
+    const freeBreakdown = calculateRealTimeScanCost(0, engineId, videoQuality);
     return {
-      cost: 0,
-      breakdown: `FREE: Using your own API key - ${tier.name} scan (${Math.ceil(durationSeconds / 60)} min)`,
-      profit: 0,
-      isFree: true
+      ...freeBreakdown,
+      userCostCoins: 0,
+      adminCostCoins: 0,
+      adminProfitCoins: 0,
+      profitMarginPercent: 0,
+      totalCostUSD: 0,
+      isFree: true,
+      breakdown: 'FREE: Using your own API key - No coins deducted'
     };
   }
   
-  // ADMIN API KEY = CHARGE COINS WITH 50% PROFIT
-  const finalCost = Math.ceil(tier.baseCoins * config.adminMultiplier);
-  const actualCost = tier.baseCoins;
-  const profit = finalCost - actualCost;
-  
-  const breakdown = `${tier.name} scan (${Math.ceil(durationSeconds / 60)} min): ${tier.baseCoins} base × ${config.adminMultiplier} = ${finalCost} coins`;
+  // Calculate real-time cost
+  const costBreakdown = calculateRealTimeScanCost(durationSeconds, engineId, videoQuality);
   
   return {
-    cost: finalCost,
-    breakdown,
-    profit,
+    ...costBreakdown,
     isFree: false
   };
 };
 
 /**
- * Update pricing tiers (Admin function)
+ * Update AI engine price (called when provider changes prices)
  */
-export const updatePricingTiers = (
-  newTiers: PricingTier[],
-  reason: string = "Manual admin update"
+export const updateEnginePrice = (
+  engineId: string,
+  newPricePer1KTokens: number
 ): PricingConfig => {
   const config = loadPricingConfig();
   
-  // Save old prices for notification
-  const oldTiers = [...config.tiers];
-  
-  // Update config
-  config.version += 1;
-  config.tiers = newTiers;
-  config.lastPriceChange = {
-    date: new Date().toISOString(),
-    reason,
-    oldPrices: oldTiers,
-    newPrices: newTiers
-  };
-  
-  savePricingConfig(config);
-  
-  console.log(`✅ Pricing updated to v${config.version}: ${reason}`);
+  if (config.engines[engineId as keyof typeof config.engines]) {
+    config.engines[engineId as keyof typeof config.engines].pricePer1KTokens = newPricePer1KTokens;
+    config.engines[engineId as keyof typeof config.engines].lastUpdated = new Date().toISOString();
+    
+    savePricingConfig(config);
+    
+    console.log(`✅ Updated ${engineId} price: $${newPricePer1KTokens} per 1K tokens`);
+  }
   
   return config;
 };
 
 /**
- * Update admin multiplier (for profit margin)
+ * Update admin profit margin
  */
-export const updateAdminMultiplier = (multiplier: number): PricingConfig => {
+export const updateAdminProfitMargin = (margin: number): PricingConfig => {
   const config = loadPricingConfig();
-  config.adminMultiplier = Math.max(1.0, multiplier); // Minimum 1.0
+  config.adminProfitMargin = Math.max(0, Math.min(1, margin)); // 0-100%
   savePricingConfig(config);
   
-  console.log(`✅ Admin multiplier updated: ${config.adminMultiplier}x`);
+  console.log(`✅ Admin profit margin updated: ${(config.adminProfitMargin * 100).toFixed(0)}%`);
   
   return config;
 };
 
 /**
- * Auto-calculate prices based on AI engine costs
- * (Optional - can be triggered by admin)
+ * Update default video quality
  */
-export const autoCalculatePrices = (): PricingConfig => {
+export const updateDefaultQuality = (quality: '360p' | '720p' | '1080p'): PricingConfig => {
   const config = loadPricingConfig();
-  const oldTiers = [...config.tiers];
-  
-  // Calculate cost per scan for each engine
-  const geminiCostPerScan = (config.engines.gemini.pricePer1KTokens / 1000) * config.engines.gemini.avgTokensPerScan;
-  const groqCostPerScan = (config.engines.groq.pricePer1KTokens / 1000) * config.engines.groq.avgTokensPerScan;
-  
-  // Use higher cost for safety margin
-  const maxCostPerScan = Math.max(geminiCostPerScan, groqCostPerScan);
-  
-  // Convert to coins
-  const coinsPerScan = Math.ceil(maxCostPerScan / config.coinValueInUSD);
-  
-  // Update tiers proportionally
-  config.tiers = [
-    {
-      name: "Short",
-      maxDurationSeconds: 60,
-      baseCoins: Math.max(2, Math.ceil(coinsPerScan * 0.4)),
-      description: "Shorts/Reels (< 1 min)"
-    },
-    {
-      name: "Standard",
-      maxDurationSeconds: 600,
-      baseCoins: Math.max(5, coinsPerScan),
-      description: "Standard videos (1-10 min)"
-    },
-    {
-      name: "Long",
-      maxDurationSeconds: 1800,
-      baseCoins: Math.max(10, Math.ceil(coinsPerScan * 2)),
-      description: "Long videos (10-30 min)"
-    },
-    {
-      name: "Deep Scan",
-      maxDurationSeconds: 0,
-      baseCoins: Math.max(20, Math.ceil(coinsPerScan * 4)),
-      description: "Very long videos (> 30 min)"
-    }
-  ];
-  
-  config.version += 1;
-  config.lastPriceChange = {
-    date: new Date().toISOString(),
-    reason: "Auto-calculated from AI engine prices",
-    oldPrices: oldTiers,
-    newPrices: config.tiers
-  };
-  
+  config.defaultQuality = quality;
   savePricingConfig(config);
   
-  console.log("✅ Prices auto-calculated from AI engine costs");
+  console.log(`✅ Default quality updated: ${quality}`);
   
   return config;
 };
@@ -295,9 +240,13 @@ export const getPricingInfo = () => {
   return {
     version: config.version,
     lastUpdated: config.lastUpdated,
-    tiers: config.tiers,
-    hasUserAPIKey: false, // Will be set by caller
-    adminMultiplier: config.adminMultiplier
+    coinValueUSD: config.coinValueInUSD,
+    adminProfitMargin: config.adminProfitMargin,
+    defaultQuality: config.defaultQuality,
+    enginePrices: {
+      gemini: config.engines.gemini.pricePer1KTokens,
+      groq: config.engines.groq.pricePer1KTokens
+    }
   };
 };
 
@@ -306,6 +255,6 @@ export const getPricingInfo = () => {
  */
 export const resetToDefaultPricing = (): PricingConfig => {
   savePricingConfig(DEFAULT_PRICING_CONFIG);
-  console.log("✅ Pricing reset to defaults");
+  console.log("✅ Pricing reset to defaults (real-time calculation)");
   return DEFAULT_PRICING_CONFIG;
 };
