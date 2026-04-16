@@ -23,6 +23,7 @@ import type { PlatformId } from "@/contexts/PlatformContext";
 import LiveAIConsole, { type AIThought } from "@/components/LiveAIConsole";
 import ComparisonView, { type ViolationComparison } from "@/components/ComparisonView";
 import FixSuggestionsPanel, { type FixSuggestion } from "@/components/FixSuggestionsPanel";
+import AIScanSummaryCard, { type AICheck } from "@/components/AIScanSummaryCard";
 
 const FBScan = () => {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ const FBScan = () => {
   const [auditReport, setAuditReport] = useState<FullReport | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [pendingScanInput, setPendingScanInput] = useState<any>(null);
+  const [lastScanResult, setLastScanResult] = useState<DeepScanResult | null>(null);
   
   // UX Enhancement states
   const [aiThoughts, setAiThoughts] = useState<AIThought[]>([]);
