@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { decryptAPIKey } from "@/utils/encryption";
 
 // AI Engine Priority: 1. Gemini (Visual/Video scan), 2. Groq (Policy Auditing)
 export type EngineId = "gemini" | "groq";
@@ -147,14 +148,25 @@ export const AIEngineProvider = ({ children }: { children: ReactNode }) => {
     setPools(initialPools);
   }, []);
 
-  // Load API key pools from localStorage
+  // Load API key pools from localStorage AND Supabase system_vault
   useEffect(() => {
     const loadPools = async () => {
+      const loadedPools: Record<EngineId, EnginePool> = {} as Record<EngineId, EnginePool>;
+      
+      // Initialize empty pools
+      for (const engine of ENGINES) {
+        loadedPools[engine.id] = {
+          engineId: engine.id,
+          keys: [],
+          activeKeyIndex: 0
+        };
+      }
+
+      // STEP 1: Load user's own API keys from localStorage (BYOK)
       const stored = localStorage.getItem(API_KEYS_STORAGE_KEY);
       if (stored) {
         try {
           const parsed = JSON.parse(stored) as Record<EngineId, { keys: Array<{id: string; key: string; status: KeyStatus; lastChecked: string; usageCount: number; isExhausted: boolean}>; activeKeyIndex: number }>;
-          const loadedPools: Record<EngineId, EnginePool> = {} as Record<EngineId, EnginePool>;
           
           for (const engine of ENGINES) {
             const engineData = parsed[engine.id];
@@ -164,31 +176,68 @@ export const AIEngineProvider = ({ children }: { children: ReactNode }) => {
                 keys: engineData.keys.map(k => ({
                   ...k,
                   key: decryptKey(k.key),
-                  lastUsed: k.lastUsed,
                 })),
                 activeKeyIndex: engineData.activeKeyIndex || 0
               };
-            } else {
-              loadedPools[engine.id] = {
-                engineId: engine.id,
-                keys: [],
-                activeKeyIndex: 0
-              };
-            }
-          }
-          
-          setPools(loadedPools);
-          
-          // Set current engine to first available
-          for (const engine of ENGINES) {
-            const pool = loadedPools[engine.id];
-            if (pool.keys.some(k => !k.isExhausted && k.status === "ready")) {
-              setCurrentEngine(engine.id);
-              break;
             }
           }
         } catch (error) {
-          console.error("Error loading API key pools:", error);
+          console.error("Error loading user API key pools:", error);
+        }
+      }
+
+      // STEP 2: Load ADMIN API keys from Supabase system_vault
+      try {
+        const { data: systemKeys, error } = await supabase
+          .from('system_vault')
+          .select('*')
+          .eq('is_active', true)
+          .in('status', ['ready', 'rate_limited'])
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.warn('Could not load system vault keys:', error.message);
+        } else if (systemKeys && systemKeys.length > 0) {
+          console.log(`✅ Loaded ${systemKeys.length} admin API keys from Supabase`);
+          
+          for (const sysKey of systemKeys) {
+            const engineId = sysKey.engine_id as EngineId;
+            
+            if (loadedPools[engineId]) {
+              // Decrypt the API key
+              let decryptedKey = '';
+              try {
+                decryptedKey = await decryptAPIKey(sysKey.api_key, sysKey.api_key_iv);
+              } catch (decryptError) {
+                console.error(`Failed to decrypt ${engineId} key:`, decryptError);
+                continue;
+              }
+
+              // Add to pool
+              loadedPools[engineId].keys.push({
+                id: sysKey.id,
+                key: decryptedKey,
+                status: sysKey.status as KeyStatus,
+                lastChecked: sysKey.last_checked || new Date().toISOString(),
+                lastUsed: sysKey.last_used || undefined,
+                usageCount: sysKey.total_requests || 0,
+                isExhausted: sysKey.status === 'exhausted' || sysKey.status === 'invalid'
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading system vault keys:', error);
+      }
+      
+      setPools(loadedPools);
+      
+      // Set current engine to first available
+      for (const engine of ENGINES) {
+        const pool = loadedPools[engine.id];
+        if (pool.keys.some(k => !k.isExhausted && k.status === "ready")) {
+          setCurrentEngine(engine.id);
+          break;
         }
       }
     };
