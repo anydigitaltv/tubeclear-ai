@@ -66,8 +66,8 @@ const AI_ENGINE_PRICES: Record<string, AIEngineCost> = {
 // Coin value (1 coin = $0.001 USD)
 const COIN_VALUE_USD = 0.001;
 
-// Admin profit margin (30%)
-const ADMIN_PROFIT_MARGIN = 0.30;
+// Admin profit margin (55%)
+const ADMIN_PROFIT_MARGIN = 0.55;
 
 /**
  * Calculate token usage for metadata analysis

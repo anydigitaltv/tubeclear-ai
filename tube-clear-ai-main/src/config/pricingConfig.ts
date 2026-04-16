@@ -109,7 +109,7 @@ export const DEFAULT_PRICING_CONFIG: PricingConfig = {
     }
   },
   
-  adminProfitMargin: 0.30, // 30% profit margin
+  adminProfitMargin: 0.55, // 55% profit margin
   defaultQuality: '360p' // 360p = 90% token savings
 };
 

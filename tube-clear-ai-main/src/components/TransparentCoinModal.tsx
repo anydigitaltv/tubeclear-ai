@@ -25,6 +25,8 @@ interface TransparentCoinModalProps {
   userBalance: number;
   videoTitle?: string;
   videoDuration?: number;
+  savedTokens?: number; // Token savings from free data
+  savingsPercent?: number; // Percentage saved
 }
 
 export const TransparentCoinModal: React.FC<TransparentCoinModalProps> = ({
@@ -35,7 +37,9 @@ export const TransparentCoinModal: React.FC<TransparentCoinModalProps> = ({
   costBreakdown,
   userBalance,
   videoTitle,
-  videoDuration
+  videoDuration,
+  savedTokens = 0,
+  savingsPercent = 0
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -94,6 +98,28 @@ export const TransparentCoinModal: React.FC<TransparentCoinModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Token Savings from Free Data */}
+          {savedTokens > 0 && (
+            <div className="p-4 rounded-lg bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20">
+              <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
+                🎁 Token Savings (Free Internet Data)
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Saved Tokens:</span>
+                  <p className="text-cyan-400 font-mono font-bold">-{savedTokens.toLocaleString()}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Savings:</span>
+                  <p className="text-cyan-400 font-mono font-bold">{savingsPercent}%</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                ✅ Free metadata fetched from internet - No AI tokens needed!
+              </p>
+            </div>
+          )}
 
           {/* Token Usage Breakdown */}
           <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
